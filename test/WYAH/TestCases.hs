@@ -5,8 +5,8 @@ module WYAH.TestCases
   ) where
 
 import Data.List (groupBy, isInfixOf, sortOn)
-import WYAH.Infer (inferExpr)
-import WYAH.Name (RenameError, RenamedExpr, renameExpr, renameProgram)
+import WYAH.Infer (inferExpr, inferProgram)
+import WYAH.Name (RenameError, RenamedExpr, RenamedProgram, renameExpr, renameProgram)
 import WYAH.Parser (parseExpr, parseProgram)
 import WYAH.Repl (runSource)
 import WYAH.Span (renderSpan)
@@ -219,16 +219,18 @@ renameErrorHasLocation =
         Left err -> "1:7-1:8" `isInfixOf` show err
         Right _ -> False
 
-renameParsed :: Either Expr Program -> Either RenameError RenamedExpr
+renameParsed :: Either Expr Program -> Either RenameError (Either RenamedExpr RenamedProgram)
 renameParsed parsed = case parsed of
-  Left expr -> renameExpr expr
-  Right program -> renameProgram program
+  Left expr -> Left <$> renameExpr expr
+  Right program -> Right <$> renameProgram program
 
 inferSource :: String -> String -> Either String String
 inferSource sourceKind input = do
   parsed <- parseInput sourceKind input
   renamed <- eitherShow (renameParsed parsed)
-  prettyType . normalizeTypeVariables <$> eitherShow (inferExpr renamed)
+  case renamed of
+    Left renamedExpr -> prettyType . normalizeTypeVariables <$> eitherShow (inferExpr renamedExpr)
+    Right renamedProgram -> prettyType . normalizeTypeVariables <$> eitherShow (inferProgram renamedProgram)
 
 leftContains :: String -> Either String String -> Bool
 leftContains needle result =

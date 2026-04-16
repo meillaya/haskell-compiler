@@ -77,9 +77,12 @@ parseProgramTokens file = go []
         TokenIdent nameSpan binder : TokenEquals _ : rest -> do
           (boundExpr, remaining) <- parseTokens file rest
           case remaining of
-            TokenSemi semiSpan : rest' -> do
-              let decl = Decl (spanBetween nameSpan semiSpan) binder boundExpr
-              go (decls <> [decl]) rest'
+            TokenSemi semiSpan : rest' ->
+              if null rest'
+                then Left (ParseError file semiSpan "expected final expression after top-level declarations")
+                else do
+                  let decl = Decl (spanBetween nameSpan semiSpan) binder boundExpr
+                  go (decls <> [decl]) rest'
             [] -> Left (ParseError file nameSpan "expected ';' after top-level declaration")
             token : _ -> Left (ParseError file (tokenSpan token) "expected ';' after top-level declaration")
         _ -> do

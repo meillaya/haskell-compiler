@@ -1,6 +1,7 @@
 module WYAH.Infer
   ( TypeError(..)
   , inferExpr
+  , inferProgram
   ) where
 
 import Data.List (nub, (\\))
@@ -26,6 +27,9 @@ inferExpr :: RenamedExpr -> Either TypeError Type
 inferExpr expr = do
   (_, ty, _) <- infer preludeEnv 0 expr
   pure ty
+
+inferProgram :: RenamedProgram -> Either TypeError Type
+inferProgram = inferExpr . lowerProgram
 
 preludeEnv :: Env
 preludeEnv = mapMaybe builtinScheme builtinBindings

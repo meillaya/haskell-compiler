@@ -1,8 +1,11 @@
 module WYAH.Name
   ( ResolvedName(..)
   , RenamedExpr(..)
+  , RenamedDecl(..)
+  , RenamedProgram(..)
   , RenameError(..)
   , builtinBindings
+  , lowerProgram
   , renameExpr
   , renameProgram
   ) where
@@ -28,6 +31,12 @@ data RenamedExpr
   | RIf Span RenamedExpr RenamedExpr RenamedExpr
   deriving (Eq, Show)
 
+data RenamedDecl = RDecl Span ResolvedName RenamedExpr
+  deriving (Eq, Show)
+
+data RenamedProgram = RenamedProgram [RenamedDecl] RenamedExpr
+  deriving (Eq, Show)
+
 data RenameError = RenameError
   { renameErrorSpan :: Span
   , renameErrorMessage :: String
@@ -45,30 +54,40 @@ builtinBindings =
 renameExpr :: Expr -> Either RenameError RenamedExpr
 renameExpr expr = fst <$> go builtinBindings 0 expr
 
-renameProgram :: Program -> Either RenameError RenamedExpr
-renameProgram program = do
-  validateProgram program
-  renameExpr (programToExpr program)
+renameProgram :: Program -> Either RenameError RenamedProgram
+renameProgram (Program decls finalExpr) = do
+  (renamedDecls, env, nextId) <- renameDecls builtinBindings [] 0 decls
+  (renamedFinal, _) <- go env nextId finalExpr
+  pure (RenamedProgram renamedDecls renamedFinal)
 
-validateProgram :: Program -> Either RenameError ()
-validateProgram (Program decls _) = checkDecls [] decls
+lowerProgram :: RenamedProgram -> RenamedExpr
+lowerProgram (RenamedProgram decls finalExpr) = foldr wrap finalExpr decls
   where
-    checkDecls _ [] = Right ()
-    checkDecls seen (Decl sp name _ : rest) =
-      case lookup name seen of
-        Just firstSpan ->
-          Left
-            ( RenameError
-                sp
-                ( "duplicate top-level declaration for "
-                    <> name
-                    <> " at "
-                    <> renderSpan sp
-                    <> "; first declared at "
-                    <> renderSpan firstSpan
-                )
+    wrap (RDecl sp name bound) body = RLet sp name bound body
+
+renameDecls :: [(Name, ResolvedName)] -> [(Name, Span)] -> Int -> [Decl] -> Either RenameError ([RenamedDecl], [(Name, ResolvedName)], Int)
+renameDecls env _ nextId [] = Right ([], env, nextId)
+renameDecls env seen nextId (Decl sp name bound : rest) =
+  case lookup name seen of
+    Just firstSpan ->
+      Left
+        ( RenameError
+            sp
+            ( "duplicate top-level declaration for "
+                <> name
+                <> " at "
+                <> renderSpan sp
+                <> "; first declared at "
+                <> renderSpan firstSpan
             )
-        Nothing -> checkDecls ((name, sp) : seen) rest
+        )
+    Nothing -> do
+      (renamedBound, nextId') <- go env nextId bound
+      let resolved = ResolvedName name nextId'
+          env' = (name, resolved) : env
+          seen' = (name, sp) : seen
+      (renamedRest, env'', nextId'') <- renameDecls env' seen' (nextId' + 1) rest
+      pure (RDecl sp resolved renamedBound : renamedRest, env'', nextId'')
 
 go :: [(Name, ResolvedName)] -> Int -> Expr -> Either RenameError (RenamedExpr, Int)
 go env nextId expression =

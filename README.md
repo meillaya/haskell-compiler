@@ -20,6 +20,7 @@ The current plan is now documented in `docs/`, especially:
 - `docs/plans/architecture-wyah-milestone-1.md`
 - `docs/plans/regression-matrix-wyah.md`
 - `docs/process/deep-interview-wyah-compiler-learning-roadmap.md`
+- `docs/process/declaration-semantics.md`
 
 ## Theory in scope so far
 

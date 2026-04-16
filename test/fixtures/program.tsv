@@ -7,3 +7,4 @@ program-missing-semi|program|parse|parse-error|active-now|id = \\x -> x id 42|ex
 program-unbound|program|rename|rename-error|active-now|id = \\x -> x; keep|not in scope|Frontend / Renamer|unbound top-level use is rejected
 program-duplicate|program|rename|rename-error|active-now|id = \\x -> x; id = \\y -> y; id 42|duplicate top-level declaration for id|Frontend / Renamer|duplicate top-level names are rejected
 program-forward-reference|program|rename|rename-error|active-now|x = y; y = 1; x|not in scope|Frontend / Renamer|top-level declarations are sequential, not recursive
+program-missing-final|program|parse|parse-error|active-now|id = \x -> x;|expected final expression after top-level declarations|Frontend / Renamer|final expression is mandatory

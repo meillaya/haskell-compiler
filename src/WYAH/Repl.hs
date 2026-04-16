@@ -6,16 +6,16 @@ module WYAH.Repl
 import System.IO (hFlush, stdout)
 import WYAH.Core (toCore)
 import WYAH.Eval (evalExpr)
-import WYAH.Infer (inferExpr)
-import WYAH.Name (renameProgram)
+import WYAH.Infer (inferProgram)
+import WYAH.Name (lowerProgram, renameProgram)
 import WYAH.Parser (parseProgram)
 
 runSource :: String -> Either String String
 runSource input = do
   program <- firstShow (parseProgram "<repl>" input)
-  renamed <- firstShow (renameProgram program)
-  inferred <- firstShow (inferExpr renamed)
-  value <- firstShow (evalExpr (toCore renamed))
+  renamedProgram <- firstShow (renameProgram program)
+  inferred <- firstShow (inferProgram renamedProgram)
+  value <- firstShow (evalExpr (toCore (lowerProgram renamedProgram)))
   pure ("type: " <> show inferred <> "\nvalue: " <> show value)
 
 repl :: IO ()
