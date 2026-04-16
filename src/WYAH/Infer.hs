@@ -4,6 +4,7 @@ module WYAH.Infer
   ) where
 
 import Data.List (nub, (\\))
+import Data.Maybe (mapMaybe)
 import WYAH.Name
 import WYAH.Span (Span, renderSpan)
 import WYAH.Syntax (Literal(..))
@@ -23,8 +24,19 @@ type Env = [(ResolvedName, Scheme)]
 
 inferExpr :: RenamedExpr -> Either TypeError Type
 inferExpr expr = do
-  (_, ty, _) <- infer [] 0 expr
+  (_, ty, _) <- infer preludeEnv 0 expr
   pure ty
+
+preludeEnv :: Env
+preludeEnv = mapMaybe builtinScheme builtinBindings
+  where
+    builtinScheme (_, resolved) =
+      case resolvedOriginal resolved of
+        "succ" -> Just (resolved, Forall [] (TFun TInt TInt))
+        "pred" -> Just (resolved, Forall [] (TFun TInt TInt))
+        "iszero" -> Just (resolved, Forall [] (TFun TInt TBool))
+        "add" -> Just (resolved, Forall [] (TFun TInt (TFun TInt TInt)))
+        _ -> Nothing
 
 infer :: Env -> Int -> RenamedExpr -> Either TypeError (Subst, Type, Int)
 infer env nextId expr = case expr of

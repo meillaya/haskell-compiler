@@ -1,12 +1,2 @@
 .stack-work/
-
-.omx/logs/
-.omx/state/
-.omx/metrics.json
-.omx/notepad.md
-.omx/tmux-hook.json
-
-!.omx/context/
-!.omx/interviews/
-!.omx/plans/
-!.omx/specs/
+.omx/

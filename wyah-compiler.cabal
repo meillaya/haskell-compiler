@@ -32,6 +32,8 @@ test-suite wyah-compiler-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Main.hs
+  other-modules:
+      WYAH.TestCases
   build-depends:
       base >=4.18 && <4.20
     , wyah-compiler

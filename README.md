@@ -13,12 +13,13 @@ This repository exists as a learning vehicle for:
 - how Haskell's algebraic data types, pattern matching, immutability, and recursion support compiler implementation;
 - how to grow a language in staged milestones without losing semantic discipline.
 
-The current plan is documented under `.omx/plans/`, especially:
+The current plan is now documented in `docs/`, especially:
 
-- `.omx/plans/prd-wyah-compiler-learning-roadmap.md`
-- `.omx/plans/roadmap-wyah-build-order.md`
-- `.omx/plans/architecture-wyah-milestone-1.md`
-- `.omx/plans/regression-matrix-wyah.md`
+- `docs/plans/prd-wyah-compiler-learning-roadmap.md`
+- `docs/plans/roadmap-wyah-build-order.md`
+- `docs/plans/architecture-wyah-milestone-1.md`
+- `docs/plans/regression-matrix-wyah.md`
+- `docs/process/deep-interview-wyah-compiler-learning-roadmap.md`
 
 ## Theory in scope so far
 
@@ -32,7 +33,8 @@ The parser currently handles a deliberately small language. At the moment that l
 - lambda abstractions,
 - application,
 - `let ... in ...`,
-- `if ... then ... else ...`.
+- `if ... then ... else ...`,
+- builtin primitive names `succ`, `pred`, `iszero`, and `add`.
 
 This stage corresponds to the usual front-end syntax phase of a compiler. In theoretical terms, we are turning a source string into a structured syntax tree with source locations. The implementation is currently a **minimal handwritten lexer/parser**, which fits the milestone constraint of avoiding external libraries when possible.
 
@@ -190,6 +192,8 @@ false
 (\x -> x) 42
 let id = \x -> x in id 42
 if true then 1 else 0
+succ 0
+add 2 3
 ```
 
 ### Supported types
@@ -207,7 +211,8 @@ t0 -> t1 -> t0
 - application substitutes by environment, not by textual rewriting;
 - `let` evaluates the bound expression and introduces a new scope;
 - `if` chooses a branch only after checking a boolean guard;
-- let-polymorphism generalizes the bound type scheme and instantiates it at later use sites.
+- let-polymorphism generalizes the bound type scheme and instantiates it at later use sites;
+- a small predefined environment provides arithmetic and predicate primitives without requiring operator syntax yet.
 
 ### Example REPL interaction
 
@@ -240,7 +245,7 @@ The initial Ralph / planning loop produced:
 - a parser decision record,
 - a diagnostics policy.
 
-These documents live under `.omx/plans/` and define the project's semantic boundaries.
+These documents now live under `docs/plans/` and `docs/process/`, while `.omx/` itself is treated as local agent/runtime state and ignored by git.
 
 ### Working Stack scaffold
 
@@ -250,7 +255,7 @@ The repository now builds as a Stack project with:
 - one executable,
 - one test suite.
 
-No third-party implementation dependencies have been introduced for the compiler itself so far.
+No third-party implementation dependencies have been introduced for the compiler itself so far. The repository-facing documentation is now kept in `docs/`, while `.omx/` remains local orchestration state.
 
 ### End-to-end pipeline
 
@@ -269,24 +274,16 @@ Source text
 
 ### Regression coverage currently implemented
 
-The current executable tests cover:
+The current executable tests are now organized as a small regression harness grouped by compiler phase. The harness currently covers:
 
-- literal parsing,
-- lambda parsing,
-- `let` parsing,
-- `if` parsing,
-- boolean literal parsing,
-- parse failures with location reporting,
-- scope failures with location reporting,
-- inference of `id`,
-- inference of `const`,
-- occurs-check failure,
-- let-polymorphism reuse,
-- condition type checking,
-- conditional branch type checking,
-- evaluation of application,
-- evaluation of `let`,
-- evaluation of `if` true and false branches,
+- parsing of literals, lambdas, `let`, booleans, and conditionals;
+- parse failures with file/span reporting;
+- scope failures with source locations;
+- inference of `id`, `const`, booleans, conditionals, and builtin primitives;
+- occurs-check failure and branch/type mismatch failures;
+- let-polymorphism reuse;
+- evaluation of application, `let`, conditionals, and the predefined primitives `succ`, `pred`, `iszero`, and `add`;
+- primitive-driven control-flow examples;
 - ill-typed application rejected before evaluation.
 
 ## Build, run, and test
@@ -321,7 +318,7 @@ The implementation is intentionally incomplete. The project is still inside a na
 
 Not implemented yet:
 
-- primitive arithmetic operators,
+- parser-level operator syntax (the project currently uses builtin names instead),
 - top-level declarations/modules,
 - pattern matching,
 - algebraic datatypes,
@@ -339,7 +336,7 @@ This is a feature, not a bug. The current goal is to make the front-end and type
 
 The next substantial work items are:
 
-- grow the regression harness from inline tests into a more systematic chapter-derived corpus;
+- grow the current grouped regression harness into a larger chapter-derived corpus with externalized fixtures;
 - add the next small but coherent language slices from the roadmap;
 - improve diagnostic consistency across parse, rename, infer, and eval;
 - keep extending the typed interpreter until it covers the approved Milestone 1 scope.
@@ -377,6 +374,16 @@ Because code generation is only worth doing once the source language semantics a
 ### Why so much emphasis on tests now?
 
 Because “compiler progress” is easy to fake with a few demos. A regression suite derived from the book prevents accidental semantic drift and keeps each new feature tied to an explicit claim.
+
+## Documentation layout
+
+Project-facing documentation lives in `docs/`:
+
+- `docs/WYAH.pdf` — local copy of the reference text
+- `docs/plans/` — roadmap, architecture, milestones, regression matrix, diagnostics policy, PRD
+- `docs/process/` — captured deep-interview/spec/context artifacts that explain how the current direction was chosen
+
+The `.omx/` directory still exists locally for agent runtime state, but it is now ignored by git and should not be treated as canonical project documentation.
 
 ## References
 

@@ -2,6 +2,7 @@ module WYAH.Name
   ( ResolvedName(..)
   , RenamedExpr(..)
   , RenameError(..)
+  , builtinBindings
   , renameExpr
   ) where
 
@@ -32,8 +33,16 @@ data RenameError = RenameError
   }
   deriving (Eq, Show)
 
+builtinBindings :: [(Name, ResolvedName)]
+builtinBindings =
+  [ ("succ", ResolvedName "succ" (-1))
+  , ("pred", ResolvedName "pred" (-2))
+  , ("iszero", ResolvedName "iszero" (-3))
+  , ("add", ResolvedName "add" (-4))
+  ]
+
 renameExpr :: Expr -> Either RenameError RenamedExpr
-renameExpr expr = fst <$> go [] 0 expr
+renameExpr expr = fst <$> go builtinBindings 0 expr
 
 go :: [(Name, ResolvedName)] -> Int -> Expr -> Either RenameError (RenamedExpr, Int)
 go env nextId expression =
