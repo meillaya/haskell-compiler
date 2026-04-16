@@ -284,7 +284,7 @@ Source text
 
 ### Regression coverage currently implemented
 
-The current executable tests are now organized as a small regression harness grouped by compiler phase, with an initial external fixture corpus under `test/fixtures/`. The harness currently covers:
+The current executable tests are now organized as a grouped fixture-driven regression harness under `test/fixtures/`. The harness currently covers:
 
 - parsing of literals, lambdas, `let`, booleans, and conditionals;
 - parse failures with file/span reporting;
@@ -303,7 +303,7 @@ The test harness now has two layers:
 - a small set of inline structural tests for parser-span and rename-location details;
 - an external fixture corpus under `test/fixtures/` for phase-owned inference/evaluation and broader regression coverage.
 
-The fixture work is intentionally a **bounded hardening pass** before the next feature target. The intended next language feature after this verification pass remains **top-level declarations**.
+The fixture work is now part of the normal verification surface for the current baseline. It covers both expression-shaped and program-shaped inputs and is used to protect parser, renamer, inference, evaluation, and whole-pipeline behavior.
 
 ## Build, run, and test
 
