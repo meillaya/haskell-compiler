@@ -50,7 +50,12 @@ loadFixtureGroups = do
     | grouped@((group, _, _) : _) <- groupBy sameGroup sortedRows
     ]
   where
-    fixtureFiles = ["test/fixtures/active-now.tsv"]
+    fixtureFiles =
+      [ "test/fixtures/parser.tsv"
+      , "test/fixtures/rename.tsv"
+      , "test/fixtures/infer.tsv"
+      , "test/fixtures/eval.tsv"
+      ]
     sameGroup (left, _, _) (right, _, _) = left == right
 
 loadFixtureFile :: FilePath -> IO [(String, String, Bool)]
@@ -58,24 +63,69 @@ loadFixtureFile path = do
   content <- readFile path
   pure
     [ case map decodeEscapes parts of
-        [group, name, mode, source, expected] -> (group, name, runFixture mode source expected)
-        _ -> error "unreachable: filtered fixture row should have exactly 5 fields"
+        [fixtureId, sourceKind, phase, expectationKind, status, input, expected, chapterRef, notes] ->
+          ( groupNameFor phase
+          , fixtureId <> " [" <> sourceKind <> ", " <> status <> "] - " <> notes <> suffix chapterRef
+          , runFixture expectationKind input expected
+          )
+        _ -> error "unreachable: filtered fixture row should have exactly 9 fields"
     | line <- lines content
     , let trimmed = dropWhile (== ' ') line
     , not (null trimmed)
     , head trimmed /= '#'
     , let parts = splitPipe line
-    , length parts == 5
+    , length parts == 9
     ]
+  where
+    suffix "" = ""
+    suffix ref = " (" <> ref <> ")"
+
+    groupNameFor phase = case phase of
+      "parse" -> "Fixture Parsing"
+      "rename" -> "Fixture Renaming"
+      "infer" -> "Fixture Inference"
+      "eval" -> "Fixture Evaluation"
+      "pipeline" -> "Fixture Pipeline"
+      _ -> "Fixture Other"
 
 runFixture :: String -> String -> String -> Bool
-runFixture mode source expected =
-  case mode of
-    "infer-ok" -> inferSource source == Right expected
-    "infer-err" -> leftContains expected (inferSource source)
-    "eval-ok" -> runSource source == Right expected
-    "eval-err" -> leftContains expected (runSource source)
+runFixture expectationKind input expected =
+  case expectationKind of
+    "infer-type" -> inferSource input == Right expected
+    "infer-error" -> leftContains expected (inferSource input)
+    "eval-value" -> runSource input == Right expected
+    "pipeline-error" -> leftContains expected (runSource input)
+    "parse-ok" -> parseExpectation input expected
+    "parse-error" -> parseErrorExpectation input expected
+    "rename-error" -> renameErrorExpectation input expected
     _ -> False
+
+parseExpectation :: String -> String -> Bool
+parseExpectation input expected =
+  case parseExpr "<fixture>" input of
+    Left _ -> False
+    Right expr ->
+      case expected of
+        spanSpec | "span=" `isInfixOf` spanSpec -> renderSpan (exprSpan expr) == drop 5 spanSpec
+        "literal=LitBool True" -> case expr of
+          Lit _ (LitBool True) -> True
+          _ -> False
+        _ -> False
+
+parseErrorExpectation :: String -> String -> Bool
+parseErrorExpectation input expected =
+  case parseExpr "sample.wyah" input of
+    Left err -> expected `isInfixOf` show err
+    Right _ -> False
+
+renameErrorExpectation :: String -> String -> Bool
+renameErrorExpectation input expected =
+  case parseExpr "<fixture>" input of
+    Left _ -> False
+    Right expr ->
+      case renameExpr expr of
+        Left err -> expected `isInfixOf` show err
+        Right _ -> False
 
 splitPipe :: String -> [String]
 splitPipe [] = [""]

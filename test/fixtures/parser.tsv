@@ -1,0 +1,7 @@
+# fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
+parse-int|expr|parse|parse-ok|active-now|42|span=1:1-1:3|Parsing|integer literal parses
+parse-bool|expr|parse|parse-ok|active-now|true|literal=LitBool True|Parsing|boolean literal parses
+parse-lambda|expr|parse|parse-ok|active-now|\\x -> x|span=1:1-1:8|Parsing|lambda parses with body span
+parse-let|expr|parse|parse-ok|active-now|let id = \\x -> x in id 42|span=1:1-1:26|Parsing|let expression parses
+parse-if|expr|parse|parse-ok|active-now|if true then 1 else 0|span=1:1-1:22|Parsing|if expression parses
+parse-error-open-paren|expr|parse|parse-error|active-now|(|sample.wyah:1:1-1:2:|Parsing|parse error reports location

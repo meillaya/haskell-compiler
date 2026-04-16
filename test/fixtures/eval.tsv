@@ -1,0 +1,11 @@
+# fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
+eval-app|expr|eval|eval-value|active-now|(\\x -> x) 42|type: Int\nvalue: VInt 42|Evaluation|application evaluation
+eval-let|expr|eval|eval-value|active-now|let id = \\x -> x in id 42|type: Int\nvalue: VInt 42|Evaluation|let evaluation
+eval-if-true|expr|eval|eval-value|active-now|if true then 1 else 0|type: Int\nvalue: VInt 1|Evaluation|if true branch
+eval-if-false|expr|eval|eval-value|active-now|if false then 1 else 0|type: Int\nvalue: VInt 0|Evaluation|if false branch
+eval-succ|expr|eval|eval-value|active-now|succ 0|type: Int\nvalue: VInt 1|Evaluation|succ primitive
+eval-pred-succ|expr|eval|eval-value|active-now|pred (succ 0)|type: Int\nvalue: VInt 0|Evaluation|pred primitive
+eval-iszero|expr|eval|eval-value|active-now|iszero 0|type: Bool\nvalue: VBool True|Evaluation|predicate primitive
+eval-add|expr|eval|eval-value|active-now|add 2 3|type: Int\nvalue: VInt 5|Evaluation|addition primitive
+eval-primitive-if|expr|eval|eval-value|active-now|if iszero 0 then 1 else 2|type: Int\nvalue: VInt 1|Evaluation|primitive-driven conditional
+eval-pipeline-error|expr|pipeline|pipeline-error|active-now|42 0|cannot unify|Evaluation|ill-typed application rejected before eval

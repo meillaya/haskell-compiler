@@ -286,6 +286,15 @@ The current executable tests are now organized as a small regression harness gro
 - primitive-driven control-flow examples;
 - ill-typed application rejected before evaluation.
 
+## Verification model
+
+The test harness now has two layers:
+
+- a small set of inline structural tests for parser-span and rename-location details;
+- an external fixture corpus under `test/fixtures/` for phase-owned inference/evaluation and broader regression coverage.
+
+The fixture work is intentionally a **bounded hardening pass** before the next feature target. The intended next language feature after this verification pass remains **top-level declarations**.
+
 ## Build, run, and test
 
 ### Build

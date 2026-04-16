@@ -1,0 +1,2 @@
+# fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
+rename-unbound|expr|rename|rename-error|active-now|\\x -> y|not in scope|Renamer|unbound variable rejected

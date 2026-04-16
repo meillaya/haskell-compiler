@@ -1,0 +1,11 @@
+# fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
+infer-succ|expr|infer|infer-type|active-now|succ|Int -> Int|Type Systems / HM|builtin succ is in scope
+infer-add|expr|infer|infer-type|active-now|add|Int -> Int -> Int|Type Systems / HM|builtin add is in scope
+infer-id|expr|infer|infer-type|active-now|\\x -> x|t0 -> t0|Type Systems / HM|identity type
+infer-const|expr|infer|infer-type|active-now|\\x -> \\y -> x|t0 -> t1 -> t0|Type Systems / HM|const type
+infer-bool|expr|infer|infer-type|active-now|true|Bool|Type Systems / HM|boolean type
+infer-if|expr|infer|infer-type|active-now|if true then 1 else 0|Int|Type Systems / HM|if expression type
+infer-branch-mismatch|expr|infer|infer-error|active-now|if true then 1 else false|cannot unify Int with Bool|Type Systems / HM|branch mismatch
+infer-non-bool-cond|expr|infer|infer-error|active-now|if 1 then 2 else 3|cannot unify Int with Bool|Type Systems / HM|guard must be Bool
+infer-occurs|expr|infer|infer-error|active-now|\\x -> x x|occurs check failed|Hindley-Milner Inference|occurs check failure
+infer-let-poly|expr|infer|infer-type|active-now|let id = \\x -> x in let keep = id 42 in id (\\y -> y)|t0 -> t0|Hindley-Milner Inference|let-polymorphism
