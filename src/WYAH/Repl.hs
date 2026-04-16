@@ -7,14 +7,13 @@ import System.IO (hFlush, stdout)
 import WYAH.Core (toCore)
 import WYAH.Eval (evalExpr)
 import WYAH.Infer (inferExpr)
-import WYAH.Name (renameExpr)
+import WYAH.Name (renameProgram)
 import WYAH.Parser (parseProgram)
-import WYAH.Syntax (programToExpr)
 
 runSource :: String -> Either String String
 runSource input = do
   program <- firstShow (parseProgram "<repl>" input)
-  renamed <- firstShow (renameExpr (programToExpr program))
+  renamed <- firstShow (renameProgram program)
   inferred <- firstShow (inferExpr renamed)
   value <- firstShow (evalExpr (toCore renamed))
   pure ("type: " <> show inferred <> "\nvalue: " <> show value)

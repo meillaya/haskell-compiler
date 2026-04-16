@@ -338,7 +338,7 @@ keep = id 42;
 id keep
 ```
 
-This is intentionally smaller than a real module system. It exists to pressure the architecture with whole-program structure while still staying inside the Milestone 1 typed-interpreter scope.
+This is intentionally smaller than a real module system. It exists to pressure the architecture with whole-program structure while still staying inside the Milestone 1 typed-interpreter scope. In the current implementation, top-level declarations are **sequential and non-recursive**, and duplicate top-level names are rejected.
 
 ## Current limitations
 

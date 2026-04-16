@@ -4,6 +4,7 @@ module WYAH.Name
   , RenameError(..)
   , builtinBindings
   , renameExpr
+  , renameProgram
   ) where
 
 import WYAH.Span (Span, renderSpan)
@@ -43,6 +44,31 @@ builtinBindings =
 
 renameExpr :: Expr -> Either RenameError RenamedExpr
 renameExpr expr = fst <$> go builtinBindings 0 expr
+
+renameProgram :: Program -> Either RenameError RenamedExpr
+renameProgram program = do
+  validateProgram program
+  renameExpr (programToExpr program)
+
+validateProgram :: Program -> Either RenameError ()
+validateProgram (Program decls _) = checkDecls [] decls
+  where
+    checkDecls _ [] = Right ()
+    checkDecls seen (Decl sp name _ : rest) =
+      case lookup name seen of
+        Just firstSpan ->
+          Left
+            ( RenameError
+                sp
+                ( "duplicate top-level declaration for "
+                    <> name
+                    <> " at "
+                    <> renderSpan sp
+                    <> "; first declared at "
+                    <> renderSpan firstSpan
+                )
+            )
+        Nothing -> checkDecls ((name, sp) : seen) rest
 
 go :: [(Name, ResolvedName)] -> Int -> Expr -> Either RenameError (RenamedExpr, Int)
 go env nextId expression =

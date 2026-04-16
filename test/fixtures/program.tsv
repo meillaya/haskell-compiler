@@ -5,3 +5,5 @@ program-eval-id|program|eval|eval-value|active-now|id = \\x -> x; id 42|type: In
 program-eval-multi-decl|program|eval|eval-value|active-now|id = \\x -> x; keep = id 42; id keep|type: Int\nvalue: VInt 42|Evaluation|multiple top-level declarations evaluate sequentially
 program-missing-semi|program|parse|parse-error|active-now|id = \\x -> x id 42|expected ';'|Frontend / Renamer|declaration parser requires semicolon separator
 program-unbound|program|rename|rename-error|active-now|id = \\x -> x; keep|not in scope|Frontend / Renamer|unbound top-level use is rejected
+program-duplicate|program|rename|rename-error|active-now|id = \\x -> x; id = \\y -> y; id 42|duplicate top-level declaration for id|Frontend / Renamer|duplicate top-level names are rejected
+program-forward-reference|program|rename|rename-error|active-now|x = y; y = 1; x|not in scope|Frontend / Renamer|top-level declarations are sequential, not recursive

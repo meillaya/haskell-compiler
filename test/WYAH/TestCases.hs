@@ -6,11 +6,11 @@ module WYAH.TestCases
 
 import Data.List (groupBy, isInfixOf, sortOn)
 import WYAH.Infer (inferExpr)
-import WYAH.Name (renameExpr)
+import WYAH.Name (RenameError, RenamedExpr, renameExpr, renameProgram)
 import WYAH.Parser (parseExpr, parseProgram)
 import WYAH.Repl (runSource)
 import WYAH.Span (renderSpan)
-import WYAH.Syntax (Decl(..), Expr(..), Literal(..), Program(..), exprSpan, programToExpr)
+import WYAH.Syntax (Decl(..), Expr(..), Literal(..), Program(..), exprSpan)
 import WYAH.Type (normalizeTypeVariables, prettyType)
 
 data CaseGroup = CaseGroup
@@ -126,7 +126,7 @@ renameErrorExpectation sourceKind input expected =
   case parseInput sourceKind input of
     Left _ -> False
     Right parsed ->
-      case renameExpr (parsedToExpr parsed) of
+      case renameParsed parsed of
         Left err -> expected `isInfixOf` show err
         Right _ -> False
 
@@ -138,11 +138,6 @@ parseInput sourceKind input =
     _ -> Left ("unsupported sourceKind: " <> sourceKind)
   where
     parseFile = "sample.wyah"
-
-parsedToExpr :: Either Expr Program -> Expr
-parsedToExpr parsed = case parsed of
-  Left expr -> expr
-  Right program -> programToExpr program
 
 programDecls :: Program -> [Decl]
 programDecls (Program decls _) = decls
@@ -224,10 +219,15 @@ renameErrorHasLocation =
         Left err -> "1:7-1:8" `isInfixOf` show err
         Right _ -> False
 
+renameParsed :: Either Expr Program -> Either RenameError RenamedExpr
+renameParsed parsed = case parsed of
+  Left expr -> renameExpr expr
+  Right program -> renameProgram program
+
 inferSource :: String -> String -> Either String String
 inferSource sourceKind input = do
   parsed <- parseInput sourceKind input
-  renamed <- eitherShow (renameExpr (parsedToExpr parsed))
+  renamed <- eitherShow (renameParsed parsed)
   prettyType . normalizeTypeVariables <$> eitherShow (inferExpr renamed)
 
 leftContains :: String -> Either String String -> Bool
