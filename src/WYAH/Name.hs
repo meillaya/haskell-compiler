@@ -10,7 +10,8 @@ module WYAH.Name
   , renameProgram
   ) where
 
-import WYAH.Span (Span, renderSpan)
+import WYAH.Diagnostic
+import WYAH.Span (Span)
 import WYAH.Syntax
 
 data ResolvedName = ResolvedName
@@ -41,7 +42,17 @@ data RenameError = RenameError
   { renameErrorSpan :: Span
   , renameErrorMessage :: String
   }
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show RenameError where
+  show err =
+    renderDiagnostic
+      Diagnostic
+        { diagnosticPhase = "rename"
+        , diagnosticSource = Nothing
+        , diagnosticSpan = Just (renameErrorSpan err)
+        , diagnosticMessage = renameErrorMessage err
+        }
 
 builtinBindings :: [(Name, ResolvedName)]
 builtinBindings =
@@ -75,10 +86,8 @@ renameDecls env seen nextId (Decl sp name bound : rest) =
             sp
             ( "duplicate top-level declaration for "
                 <> name
-                <> " at "
-                <> renderSpan sp
                 <> "; first declared at "
-                <> renderSpan firstSpan
+                <> show firstSpan
             )
         )
     Nothing -> do
@@ -95,7 +104,7 @@ go env nextId expression =
     Var sp name ->
       case lookup name env of
         Just resolved -> Right (RVar sp resolved, nextId)
-        Nothing -> Left (RenameError sp ("not in scope: " <> name <> " at " <> renderSpan sp))
+        Nothing -> Left (RenameError sp ("not in scope: " <> name))
     Lit sp literal -> Right (RLit sp literal, nextId)
     Lam sp binder body -> do
       let resolved = ResolvedName binder nextId

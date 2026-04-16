@@ -6,7 +6,8 @@ build-type:         Simple
 library
   hs-source-dirs:      src
   exposed-modules:
-      WYAH.Span
+      WYAH.Diagnostic
+    , WYAH.Span
     , WYAH.Syntax
     , WYAH.Parser
     , WYAH.Name

@@ -1,10 +1,10 @@
 # fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
-program-parse-one-decl|program|parse|parse-ok|active-now|id = \\x -> x; id 42|decls=1|Frontend / Renamer|single top-level declaration parses
-program-infer-id|program|infer|infer-type|active-now|id = \\x -> x; id|t0 -> t0|Frontend / Renamer|declaration program infers identity type
-program-eval-id|program|eval|eval-value|active-now|id = \\x -> x; id 42|type: Int\nvalue: VInt 42|Evaluation|declaration program evaluates
-program-eval-multi-decl|program|eval|eval-value|active-now|id = \\x -> x; keep = id 42; id keep|type: Int\nvalue: VInt 42|Evaluation|multiple top-level declarations evaluate sequentially
-program-missing-semi|program|parse|parse-error|active-now|id = \\x -> x id 42|expected ';'|Frontend / Renamer|declaration parser requires semicolon separator
-program-unbound|program|rename|rename-error|active-now|id = \\x -> x; keep|not in scope|Frontend / Renamer|unbound top-level use is rejected
-program-duplicate|program|rename|rename-error|active-now|id = \\x -> x; id = \\y -> y; id 42|duplicate top-level declaration for id|Frontend / Renamer|duplicate top-level names are rejected
-program-forward-reference|program|rename|rename-error|active-now|x = y; y = 1; x|not in scope|Frontend / Renamer|top-level declarations are sequential, not recursive
-program-missing-final|program|parse|parse-error|active-now|id = \x -> x;|expected final expression after top-level declarations|Frontend / Renamer|final expression is mandatory
+program-parse-one-decl|program|parse|parse-ok|active-now|id = \x -> x; id 42|decls=1|Frontend / Renamer|single top-level declaration parses
+program-infer-id|program|infer|infer-type|active-now|id = \x -> x; id|t0 -> t0|Frontend / Renamer|declaration program infers identity type
+program-eval-id|program|eval|eval-value|active-now|id = \x -> x; id 42|type: Int\nvalue: VInt 42|Evaluation|declaration program evaluates
+program-eval-multi-decl|program|eval|eval-value|active-now|id = \x -> x; keep = id 42; id keep|type: Int\nvalue: VInt 42|Evaluation|multiple top-level declarations evaluate sequentially
+program-missing-semi|program|parse|parse-error|active-now|id = \x -> x id 42|phase=parse; source=sample.wyah; span=1:1-1:3; message=expected ';'|Frontend / Renamer|declaration parser requires semicolon separator
+program-unbound|program|rename|rename-error|active-now|id = \x -> x; keep|phase=rename; source=<unknown>; span=1:15-1:19; message=not in scope|Frontend / Renamer|unbound top-level use is rejected
+program-duplicate|program|rename|rename-error|active-now|id = \x -> x; id = \y -> y; id 42|phase=rename; source=<unknown>; span=1:15-1:28; message=duplicate top-level declaration for id|Frontend / Renamer|duplicate top-level names are rejected
+program-forward-reference|program|rename|rename-error|active-now|x = y; y = 1; x|phase=rename; source=<unknown>; span=1:5-1:6; message=not in scope|Frontend / Renamer|top-level declarations are sequential, not recursive
+program-missing-final|program|parse|parse-error|active-now|id = \x -> x;|phase=parse; source=sample.wyah; span=1:13-1:14; message=expected final expression after top-level declarations|Frontend / Renamer|final expression is mandatory

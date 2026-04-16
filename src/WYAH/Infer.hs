@@ -6,8 +6,9 @@ module WYAH.Infer
 
 import Data.List (nub, (\\))
 import Data.Maybe (mapMaybe)
+import WYAH.Diagnostic
 import WYAH.Name
-import WYAH.Span (Span, renderSpan)
+import WYAH.Span (Span)
 import WYAH.Syntax (Literal(..))
 import WYAH.Type
 
@@ -15,7 +16,17 @@ data TypeError = TypeError
   { typeErrorSpan :: Span
   , typeErrorMessage :: String
   }
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show TypeError where
+  show err =
+    renderDiagnostic
+      Diagnostic
+        { diagnosticPhase = "infer"
+        , diagnosticSource = Nothing
+        , diagnosticSpan = Just (typeErrorSpan err)
+        , diagnosticMessage = typeErrorMessage err
+        }
 
 data Scheme = Forall [TVar] Type
   deriving (Eq, Show)
@@ -142,12 +153,12 @@ unify sp left right = case (left, right) of
     substIn <- unify sp leftIn rightIn
     substOut <- unify sp (apply substIn leftOut) (apply substIn rightOut)
     Right (compose substOut substIn)
-  _ -> Left (TypeError sp ("cannot unify " <> prettyType left <> " with " <> prettyType right <> " at " <> renderSpan sp))
+  _ -> Left (TypeError sp ("cannot unify " <> prettyType left <> " with " <> prettyType right))
 
 bind :: Span -> TVar -> Type -> Either TypeError Subst
 bind sp tv ty
   | ty == TVariable tv = Right []
-  | occurs tv ty = Left (TypeError sp ("occurs check failed: " <> show tv <> " in " <> prettyType ty <> " at " <> renderSpan sp))
+  | occurs tv ty = Left (TypeError sp ("occurs check failed: " <> show tv <> " in " <> prettyType ty))
   | otherwise = Right [(tv, ty)]
 
 occurs :: TVar -> Type -> Bool

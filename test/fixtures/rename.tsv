@@ -1,2 +1,2 @@
 # fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
-rename-unbound|expr|rename|rename-error|active-now|\\x -> y|not in scope|Renamer|unbound variable rejected
+rename-unbound|expr|rename|rename-error|active-now|\\x -> y|phase=rename; source=<unknown>; span=1:7-1:8; message=not in scope|Renamer|unbound variable rejected

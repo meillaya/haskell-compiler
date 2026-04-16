@@ -6,6 +6,7 @@ module WYAH.Eval
 
 import Data.Maybe (mapMaybe)
 import WYAH.Core
+import WYAH.Diagnostic
 import WYAH.Name
 import WYAH.Syntax (Literal(..))
 
@@ -23,8 +24,20 @@ data Value
   | VPrimitive Primitive [Value]
   deriving (Eq, Show)
 
-data EvalError = EvalError String
-  deriving (Eq, Show)
+data EvalError = EvalError
+  { evalErrorMessage :: String
+  }
+  deriving (Eq)
+
+instance Show EvalError where
+  show err =
+    renderDiagnostic
+      Diagnostic
+        { diagnosticPhase = "eval"
+        , diagnosticSource = Nothing
+        , diagnosticSpan = Nothing
+        , diagnosticMessage = evalErrorMessage err
+        }
 
 evalExpr :: CoreExpr -> Either EvalError Value
 evalExpr = go preludeEnv

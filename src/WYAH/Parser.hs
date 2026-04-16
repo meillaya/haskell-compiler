@@ -5,6 +5,7 @@ module WYAH.Parser
   ) where
 
 import Data.Char (isAlpha, isAlphaNum, isDigit, isSpace)
+import WYAH.Diagnostic
 import WYAH.Span
 import WYAH.Syntax
 
@@ -17,7 +18,13 @@ data ParseError = ParseError
 
 instance Show ParseError where
   show err =
-    parseErrorFile err <> ":" <> renderSpan (parseErrorSpan err) <> ": " <> parseErrorMessage err
+    renderDiagnostic
+      Diagnostic
+        { diagnosticPhase = "parse"
+        , diagnosticSource = Just (parseErrorFile err)
+        , diagnosticSpan = Just (parseErrorSpan err)
+        , diagnosticMessage = parseErrorMessage err
+        }
 
 data Token
   = TokenLambda Span

@@ -48,3 +48,13 @@ For the current Milestone 1 interpreter:
 - rename tests should confirm scope failures with location;
 - inference tests should confirm type/occurs-check mismatches with meaningful fragments and spans where available;
 - evaluation tests should mostly focus on values or well-defined runtime rejection cases.
+
+## Current normalized rendering
+
+Diagnostics currently render in a normalized form like:
+
+```text
+phase=<phase>; source=<source>; span=<span>; message=<message>
+```
+
+`source` may be `<unknown>` when a phase does not yet preserve file-level origin information. `span` may be `<unknown>` for evaluator-level errors until deeper source propagation is implemented.

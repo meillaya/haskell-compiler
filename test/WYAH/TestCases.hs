@@ -5,6 +5,7 @@ module WYAH.TestCases
   ) where
 
 import Data.List (groupBy, isInfixOf, sortOn)
+import WYAH.Eval (EvalError(..))
 import WYAH.Infer (inferExpr, inferProgram)
 import WYAH.Name (RenameError, RenamedExpr, RenamedProgram, renameExpr, renameProgram)
 import WYAH.Parser (parseExpr, parseProgram)
@@ -33,6 +34,12 @@ inlineGroups =
       ]
   , CaseGroup "Renaming"
       [ AssertionCase "rename unbound variable reports source location" renameErrorHasLocation
+      ]
+  , CaseGroup "Diagnostics"
+      [ AssertionCase "parse diagnostics are normalized" (diagnosticHas ["phase=parse","source=sample.wyah","span=1:1-1:2"] showParseError)
+      , AssertionCase "rename diagnostics are normalized" (diagnosticHas ["phase=rename","source=<unknown>","span=1:7-1:8"] showRenameError)
+      , AssertionCase "infer diagnostics are normalized" (diagnosticHas ["phase=infer","source=<unknown>","span=1:1-1:19"] showInferError)
+      , AssertionCase "eval diagnostics are normalized" (diagnosticHas ["phase=eval","source=<unknown>","span=<unknown>"] (show (EvalError "boom")))
       ]
   ]
 
@@ -118,7 +125,7 @@ parseExpectation sourceKind input expected =
 parseErrorExpectation :: String -> String -> String -> Bool
 parseErrorExpectation sourceKind input expected =
   case parseInput sourceKind input of
-    Left err -> expected `isInfixOf` show err
+    Left err -> leftContains expected (Left (show err))
     Right _ -> False
 
 renameErrorExpectation :: String -> String -> String -> Bool
@@ -127,7 +134,7 @@ renameErrorExpectation sourceKind input expected =
     Left _ -> False
     Right parsed ->
       case renameParsed parsed of
-        Left err -> expected `isInfixOf` show err
+        Left err -> leftContains expected (Left (show err))
         Right _ -> False
 
 parseInput :: String -> String -> Either String (Either Expr Program)
@@ -174,10 +181,7 @@ parseLambdaHasSpan =
     Left _ -> False
 
 parseErrorHasLocation :: Bool
-parseErrorHasLocation =
-  case parseExpr "sample.wyah" "(" of
-    Left err -> "sample.wyah:1:1-1:2:" `isInfixOf` show err
-    Right _ -> False
+parseErrorHasLocation = diagnosticHas ["phase=parse","source=sample.wyah","span=1:1-1:2"] showParseError
 
 parseLetExpression :: Bool
 parseLetExpression =
@@ -210,14 +214,28 @@ parseBoolLiteral =
     Right (Lit _ (LitBool True)) -> True
     _ -> False
 
+showParseError :: String
+showParseError = case parseExpr "sample.wyah" "(" of
+  Left err -> show err
+  Right _ -> ""
+
+showRenameError :: String
+showRenameError = case parseExpr "<test>" "\\x -> y" of
+  Left _ -> ""
+  Right expr -> case renameExpr expr of
+    Left err -> show err
+    Right _ -> ""
+
+showInferError :: String
+showInferError = case inferSource "expr" "if 1 then 2 else 3" of
+  Left err -> err
+  Right _ -> ""
+
+diagnosticHas :: [String] -> String -> Bool
+diagnosticHas needles haystack = all (`isInfixOf` haystack) needles
+
 renameErrorHasLocation :: Bool
-renameErrorHasLocation =
-  case parseExpr "<test>" "\\x -> y" of
-    Left _ -> False
-    Right expr ->
-      case renameExpr expr of
-        Left err -> "1:7-1:8" `isInfixOf` show err
-        Right _ -> False
+renameErrorHasLocation = diagnosticHas ["phase=rename","span=1:7-1:8"] showRenameError
 
 renameParsed :: Either Expr Program -> Either RenameError (Either RenamedExpr RenamedProgram)
 renameParsed parsed = case parsed of
