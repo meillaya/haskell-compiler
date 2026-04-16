@@ -1,0 +1,21 @@
+# group|name|mode|source|expect
+Inference|builtin succ is in scope|infer-ok|succ|Int -> Int
+Inference|builtin add is in scope|infer-ok|add|Int -> Int -> Int
+Inference|infer id type|infer-ok|\x -> x|t0 -> t0
+Inference|infer const type|infer-ok|\x -> \y -> x|t0 -> t1 -> t0
+Inference|infer boolean literal type|infer-ok|true|Bool
+Inference|infer if expression type|infer-ok|if true then 1 else 0|Int
+Inference|if branch mismatch fails|infer-err|if true then 1 else false|cannot unify Int with Bool
+Inference|non-boolean condition fails|infer-err|if 1 then 2 else 3|cannot unify Int with Bool
+Inference|occurs check failure|infer-err|\x -> x x|occurs check failed
+Inference|let-polymorphism via reused identity|infer-ok|let id = \x -> x in let keep = id 42 in id (\y -> y)|t0 -> t0
+Evaluation|pipeline application|eval-ok|(\x -> x) 42|type: Int\nvalue: VInt 42
+Evaluation|let evaluation|eval-ok|let id = \x -> x in id 42|type: Int\nvalue: VInt 42
+Evaluation|if evaluation true branch|eval-ok|if true then 1 else 0|type: Int\nvalue: VInt 1
+Evaluation|if evaluation false branch|eval-ok|if false then 1 else 0|type: Int\nvalue: VInt 0
+Evaluation|succ evaluation|eval-ok|succ 0|type: Int\nvalue: VInt 1
+Evaluation|pred/succ evaluation|eval-ok|pred (succ 0)|type: Int\nvalue: VInt 0
+Evaluation|iszero evaluation|eval-ok|iszero 0|type: Bool\nvalue: VBool True
+Evaluation|add evaluation|eval-ok|add 2 3|type: Int\nvalue: VInt 5
+Evaluation|primitive can drive conditionals|eval-ok|if iszero 0 then 1 else 2|type: Int\nvalue: VInt 1
+Evaluation|ill-typed application rejected before eval|eval-err|42 0|cannot unify

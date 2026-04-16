@@ -274,7 +274,7 @@ Source text
 
 ### Regression coverage currently implemented
 
-The current executable tests are now organized as a small regression harness grouped by compiler phase. The harness currently covers:
+The current executable tests are now organized as a small regression harness grouped by compiler phase, with an initial external fixture corpus under `test/fixtures/`. The harness currently covers:
 
 - parsing of literals, lambdas, `let`, booleans, and conditionals;
 - parse failures with file/span reporting;

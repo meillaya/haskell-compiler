@@ -5,7 +5,8 @@ import WYAH.TestCases
 
 main :: IO ()
 main = do
-  mapM_ runGroup groupedCases
+  groups <- groupedCases
+  mapM_ runGroup groups
   putStrLn "All tests passed."
 
 runGroup :: CaseGroup -> IO ()

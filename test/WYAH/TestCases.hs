@@ -4,7 +4,7 @@ module WYAH.TestCases
   , groupedCases
   ) where
 
-import Data.List (isInfixOf)
+import Data.List (groupBy, isInfixOf, sortOn)
 import WYAH.Infer (inferExpr)
 import WYAH.Name (renameExpr)
 import WYAH.Parser (parseExpr)
@@ -21,9 +21,8 @@ data CaseGroup = CaseGroup
 data Case
   = AssertionCase String Bool
 
-
-groupedCases :: [CaseGroup]
-groupedCases =
+inlineGroups :: [CaseGroup]
+inlineGroups =
   [ CaseGroup "Parsing"
       [ AssertionCase "parse literal" parseLiteralHasSpan
       , AssertionCase "parse lambda spans binder/body" parseLambdaHasSpan
@@ -35,31 +34,63 @@ groupedCases =
   , CaseGroup "Renaming"
       [ AssertionCase "rename unbound variable reports source location" renameErrorHasLocation
       ]
-  , CaseGroup "Inference"
-      [ AssertionCase "builtin succ is in scope" (inferSource "succ" == Right "Int -> Int")
-      , AssertionCase "builtin add is in scope" (inferSource "add" == Right "Int -> Int -> Int")
-      , AssertionCase "infer id type" (inferSource "\\x -> x" == Right "t0 -> t0")
-      , AssertionCase "infer const type" (inferSource "\\x -> \\y -> x" == Right "t0 -> t1 -> t0")
-      , AssertionCase "infer boolean literal type" (inferSource "true" == Right "Bool")
-      , AssertionCase "infer if expression type" (inferSource "if true then 1 else 0" == Right "Int")
-      , AssertionCase "if branch mismatch fails" (leftContains "cannot unify Int with Bool" (inferSource "if true then 1 else false"))
-      , AssertionCase "non-boolean condition fails" (leftContains "cannot unify Int with Bool" (inferSource "if 1 then 2 else 3"))
-      , AssertionCase "occurs check failure" (leftContains "occurs check failed" (inferSource "\\x -> x x"))
-      , AssertionCase "let-polymorphism via reused identity" (inferSource "let id = \\x -> x in let keep = id 42 in id (\\y -> y)" == Right "t0 -> t0")
-      ]
-  , CaseGroup "Evaluation"
-      [ AssertionCase "pipeline application" (runSource "(\\x -> x) 42" == Right "type: Int\nvalue: VInt 42")
-      , AssertionCase "let evaluation" (runSource "let id = \\x -> x in id 42" == Right "type: Int\nvalue: VInt 42")
-      , AssertionCase "if evaluation true branch" (runSource "if true then 1 else 0" == Right "type: Int\nvalue: VInt 1")
-      , AssertionCase "if evaluation false branch" (runSource "if false then 1 else 0" == Right "type: Int\nvalue: VInt 0")
-      , AssertionCase "succ evaluation" (runSource "succ 0" == Right "type: Int\nvalue: VInt 1")
-      , AssertionCase "pred/succ evaluation" (runSource "pred (succ 0)" == Right "type: Int\nvalue: VInt 0")
-      , AssertionCase "iszero evaluation" (runSource "iszero 0" == Right "type: Bool\nvalue: VBool True")
-      , AssertionCase "add evaluation" (runSource "add 2 3" == Right "type: Int\nvalue: VInt 5")
-      , AssertionCase "primitive can drive conditionals" (runSource "if iszero 0 then 1 else 2" == Right "type: Int\nvalue: VInt 1")
-      , AssertionCase "ill-typed application rejected before eval" (leftContains "cannot unify" (runSource "42 0"))
-      ]
   ]
+
+groupedCases :: IO [CaseGroup]
+groupedCases = do
+  fixtureGroups <- loadFixtureGroups
+  pure (inlineGroups <> fixtureGroups)
+
+loadFixtureGroups :: IO [CaseGroup]
+loadFixtureGroups = do
+  rows <- concat <$> mapM loadFixtureFile fixtureFiles
+  let sortedRows = sortOn (\(group, _, _) -> group) rows
+  pure
+    [ CaseGroup group [AssertionCase label result | (_, label, result) <- grouped]
+    | grouped@((group, _, _) : _) <- groupBy sameGroup sortedRows
+    ]
+  where
+    fixtureFiles = ["test/fixtures/active-now.tsv"]
+    sameGroup (left, _, _) (right, _, _) = left == right
+
+loadFixtureFile :: FilePath -> IO [(String, String, Bool)]
+loadFixtureFile path = do
+  content <- readFile path
+  pure
+    [ case map decodeEscapes parts of
+        [group, name, mode, source, expected] -> (group, name, runFixture mode source expected)
+        _ -> error "unreachable: filtered fixture row should have exactly 5 fields"
+    | line <- lines content
+    , let trimmed = dropWhile (== ' ') line
+    , not (null trimmed)
+    , head trimmed /= '#'
+    , let parts = splitPipe line
+    , length parts == 5
+    ]
+
+runFixture :: String -> String -> String -> Bool
+runFixture mode source expected =
+  case mode of
+    "infer-ok" -> inferSource source == Right expected
+    "infer-err" -> leftContains expected (inferSource source)
+    "eval-ok" -> runSource source == Right expected
+    "eval-err" -> leftContains expected (runSource source)
+    _ -> False
+
+splitPipe :: String -> [String]
+splitPipe [] = [""]
+splitPipe (char : rest)
+  | char == '|' = "" : splitPipe rest
+  | otherwise = case splitPipe rest of
+      [] -> [[char]]
+      chunk : chunks -> (char : chunk) : chunks
+
+decodeEscapes :: String -> String
+decodeEscapes [] = []
+decodeEscapes ('\\' : 'n' : rest) = '\n' : decodeEscapes rest
+decodeEscapes ('\\' : 't' : rest) = '\t' : decodeEscapes rest
+decodeEscapes ('\\' : '\\' : rest) = '\\' : decodeEscapes rest
+decodeEscapes (char : rest) = char : decodeEscapes rest
 
 parseLiteralHasSpan :: Bool
 parseLiteralHasSpan =
