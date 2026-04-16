@@ -317,7 +317,7 @@ That baseline includes:
 - minimal whole-program support,
 - and a small surface operator layer over existing semantics.
 
-The next semantic/syntax family is now the bounded slice of optional top-level declaration type annotations, as approved by planning.
+The most recent approved planning checkpoint selected a **bounded boolean short-circuit operator grammar** as the next exact slice: `&&` and `||`, implemented via pure desugaring to existing `if` / `Bool` semantics with no new primitives. Execution is intentionally paused at that planning checkpoint until explicitly resumed.
 
 ## Documentation layout
 
