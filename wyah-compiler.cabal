@@ -1,0 +1,39 @@
+cabal-version:      2.4
+name:               wyah-compiler
+version:            0.1.0.0
+build-type:         Simple
+
+library
+  hs-source-dirs:      src
+  exposed-modules:
+      WYAH.Span
+    , WYAH.Syntax
+    , WYAH.Parser
+    , WYAH.Name
+    , WYAH.Type
+    , WYAH.Infer
+    , WYAH.Core
+    , WYAH.Eval
+    , WYAH.Repl
+  build-depends:       base >=4.18 && <4.20
+  default-language:    GHC2021
+  ghc-options:         -Wall
+
+executable wyah-compiler
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  build-depends:
+      base >=4.18 && <4.20
+    , wyah-compiler
+  default-language:    GHC2021
+  ghc-options:         -Wall
+
+test-suite wyah-compiler-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Main.hs
+  build-depends:
+      base >=4.18 && <4.20
+    , wyah-compiler
+  default-language:    GHC2021
+  ghc-options:         -Wall

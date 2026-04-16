@@ -1,0 +1,28 @@
+# Context Snapshot
+
+- Task statement: Produce both a 1-page study guide and a read-in-build-order roadmap for implementing the Write You a Haskell compiler in this repository, while clarifying the broader learning goals and extension ambitions.
+- Desired outcome: A spec-ready understanding of the project intent, scope boundaries, acceptance criteria, and OMX decision boundaries before planning/execution.
+- Stated solution: Use deep-interview to clarify requirements, then hand off to planning or execution modes.
+- Probable intent hypothesis: The user wants a rigorous but practical learning project that implements the compiler faithfully in Haskell, teaches theory alongside engineering, and leaves room for later extensions beyond the book.
+- Known facts/evidence:
+  - Repository currently contains docs/WYAH.pdf and OMX state files, with no compiler source tree yet.
+  - The reference text is Stephen Diehl's Write You a Haskell (193-page PDF in docs/WYAH.pdf).
+  - The user asked for both a chapter outline-derived study guide and a build-order roadmap.
+  - The user explicitly invoked $deep-interview and described educational goals spanning automata theory, theory of computation, compiler theory, and Haskell-specific implementation insights.
+- Constraints:
+  - Deep-interview mode must clarify requirements before planning or implementation.
+  - One question per round.
+  - No direct implementation in this mode.
+- Unknowns/open questions:
+  - What counts as "correctly" implementing the compiler for this learning exercise?
+  - How faithful should the implementation be to the book versus adapting architecture/tooling?
+  - What should remain out of scope for the initial milestone?
+  - What extensions matter most after reproducing the book?
+  - What decisions can OMX make autonomously without confirmation?
+- Decision-boundary unknowns:
+  - Whether OMX may reorganize chapter order into a different implementation sequence.
+  - Whether OMX may add tests, notes, formal proofs, experiments, or alternative backends without asking.
+  - Whether deviations from the book are acceptable when they improve pedagogy or correctness.
+- Likely codebase touchpoints:
+  - docs/WYAH.pdf
+  - future src/, app/, test/, cabal.project / package.cabal or stack files
