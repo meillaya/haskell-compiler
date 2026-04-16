@@ -2,7 +2,11 @@ module WYAH.Syntax
   ( Name
   , Literal(..)
   , Expr(..)
+  , Decl(..)
+  , Program(..)
+  , declSpan
   , exprSpan
+  , programToExpr
   ) where
 
 import WYAH.Span (Span)
@@ -23,6 +27,15 @@ data Expr
   | If Span Expr Expr Expr
   deriving (Eq, Show)
 
+data Decl = Decl Span Name Expr
+  deriving (Eq, Show)
+
+data Program = Program [Decl] Expr
+  deriving (Eq, Show)
+
+declSpan :: Decl -> Span
+declSpan (Decl sp _ _) = sp
+
 exprSpan :: Expr -> Span
 exprSpan expr = case expr of
   Var sp _ -> sp
@@ -31,3 +44,8 @@ exprSpan expr = case expr of
   App sp _ _ -> sp
   Let sp _ _ _ -> sp
   If sp _ _ _ -> sp
+
+programToExpr :: Program -> Expr
+programToExpr (Program decls finalExpr) = foldr wrap finalExpr decls
+  where
+    wrap (Decl sp name bound) body = Let sp name bound body

@@ -7,10 +7,10 @@ module WYAH.TestCases
 import Data.List (groupBy, isInfixOf, sortOn)
 import WYAH.Infer (inferExpr)
 import WYAH.Name (renameExpr)
-import WYAH.Parser (parseExpr)
+import WYAH.Parser (parseExpr, parseProgram)
 import WYAH.Repl (runSource)
 import WYAH.Span (renderSpan)
-import WYAH.Syntax (Expr(..), Literal(..), exprSpan)
+import WYAH.Syntax (Decl(..), Expr(..), Literal(..), Program(..), exprSpan, programToExpr)
 import WYAH.Type (normalizeTypeVariables, prettyType)
 
 data CaseGroup = CaseGroup
@@ -55,6 +55,7 @@ loadFixtureGroups = do
       , "test/fixtures/rename.tsv"
       , "test/fixtures/infer.tsv"
       , "test/fixtures/eval.tsv"
+      , "test/fixtures/program.tsv"
       ]
     sameGroup (left, _, _) (right, _, _) = left == right
 
@@ -66,7 +67,7 @@ loadFixtureFile path = do
         [fixtureId, sourceKind, phase, expectationKind, status, input, expected, chapterRef, notes] ->
           ( groupNameFor phase
           , fixtureId <> " [" <> sourceKind <> ", " <> status <> "] - " <> notes <> suffix chapterRef
-          , runFixture expectationKind input expected
+          , runFixture sourceKind expectationKind input expected
           )
         _ -> error "unreachable: filtered fixture row should have exactly 9 fields"
     | line <- lines content
@@ -88,44 +89,63 @@ loadFixtureFile path = do
       "pipeline" -> "Fixture Pipeline"
       _ -> "Fixture Other"
 
-runFixture :: String -> String -> String -> Bool
-runFixture expectationKind input expected =
+runFixture :: String -> String -> String -> String -> Bool
+runFixture sourceKind expectationKind input expected =
   case expectationKind of
-    "infer-type" -> inferSource input == Right expected
-    "infer-error" -> leftContains expected (inferSource input)
+    "infer-type" -> inferSource sourceKind input == Right expected
+    "infer-error" -> leftContains expected (inferSource sourceKind input)
     "eval-value" -> runSource input == Right expected
     "pipeline-error" -> leftContains expected (runSource input)
-    "parse-ok" -> parseExpectation input expected
-    "parse-error" -> parseErrorExpectation input expected
-    "rename-error" -> renameErrorExpectation input expected
+    "parse-ok" -> parseExpectation sourceKind input expected
+    "parse-error" -> parseErrorExpectation sourceKind input expected
+    "rename-error" -> renameErrorExpectation sourceKind input expected
     _ -> False
 
-parseExpectation :: String -> String -> Bool
-parseExpectation input expected =
-  case parseExpr "<fixture>" input of
+parseExpectation :: String -> String -> String -> Bool
+parseExpectation sourceKind input expected =
+  case parseInput sourceKind input of
     Left _ -> False
-    Right expr ->
-      case expected of
-        spanSpec | "span=" `isInfixOf` spanSpec -> renderSpan (exprSpan expr) == drop 5 spanSpec
-        "literal=LitBool True" -> case expr of
-          Lit _ (LitBool True) -> True
-          _ -> False
+    Right parsed ->
+      case (sourceKind, expected, parsed) of
+        ("expr", spanSpec, Left expr) | "span=" `isInfixOf` spanSpec -> renderSpan (exprSpan expr) == drop 5 spanSpec
+        ("expr", "literal=LitBool True", Left (Lit _ (LitBool True))) -> True
+        ("program", declSpec, Right program) | "decls=" `isInfixOf` declSpec ->
+          case reads (drop 6 declSpec) of
+            [(n, "")] -> length (programDecls program) == n
+            _ -> False
         _ -> False
 
-parseErrorExpectation :: String -> String -> Bool
-parseErrorExpectation input expected =
-  case parseExpr "sample.wyah" input of
+parseErrorExpectation :: String -> String -> String -> Bool
+parseErrorExpectation sourceKind input expected =
+  case parseInput sourceKind input of
     Left err -> expected `isInfixOf` show err
     Right _ -> False
 
-renameErrorExpectation :: String -> String -> Bool
-renameErrorExpectation input expected =
-  case parseExpr "<fixture>" input of
+renameErrorExpectation :: String -> String -> String -> Bool
+renameErrorExpectation sourceKind input expected =
+  case parseInput sourceKind input of
     Left _ -> False
-    Right expr ->
-      case renameExpr expr of
+    Right parsed ->
+      case renameExpr (parsedToExpr parsed) of
         Left err -> expected `isInfixOf` show err
         Right _ -> False
+
+parseInput :: String -> String -> Either String (Either Expr Program)
+parseInput sourceKind input =
+  case sourceKind of
+    "expr" -> either (Left . show) (Right . Left) (parseExpr parseFile input)
+    "program" -> either (Left . show) (Right . Right) (parseProgram parseFile input)
+    _ -> Left ("unsupported sourceKind: " <> sourceKind)
+  where
+    parseFile = "sample.wyah"
+
+parsedToExpr :: Either Expr Program -> Expr
+parsedToExpr parsed = case parsed of
+  Left expr -> expr
+  Right program -> programToExpr program
+
+programDecls :: Program -> [Decl]
+programDecls (Program decls _) = decls
 
 splitPipe :: String -> [String]
 splitPipe [] = [""]
@@ -204,10 +224,10 @@ renameErrorHasLocation =
         Left err -> "1:7-1:8" `isInfixOf` show err
         Right _ -> False
 
-inferSource :: String -> Either String String
-inferSource input = do
-  parsed <- eitherShow (parseExpr "<test>" input)
-  renamed <- eitherShow (renameExpr parsed)
+inferSource :: String -> String -> Either String String
+inferSource sourceKind input = do
+  parsed <- parseInput sourceKind input
+  renamed <- eitherShow (renameExpr (parsedToExpr parsed))
   prettyType . normalizeTypeVariables <$> eitherShow (inferExpr renamed)
 
 leftContains :: String -> Either String String -> Bool

@@ -59,7 +59,7 @@ Owns full-path failures and success cases that intentionally traverse multiple p
 The harness is designed around two input kinds:
 
 - `expr` — active now
-- `program` — reserved for the next major feature target (top-level declarations)
+- `program` — now active for the minimal top-level declaration model and intended to grow further as declaration/program structure expands
 
 Current fixture work must not assume every test will always remain expression-shaped.
 
@@ -82,4 +82,4 @@ This harness hardening pass is complete when:
 5. README/docs explain the harness,
 6. no declaration semantics have been implemented yet.
 
-After that, the intended next target is **top-level declarations**.
+After that, the intended next target was **top-level declarations**, which have now begun in a minimal semicolon-separated program form. The next target after this slice should focus on deepening declaration support or the next syntax/semantic boundary chosen by planning.

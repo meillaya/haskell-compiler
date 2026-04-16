@@ -34,6 +34,7 @@ The parser currently handles a deliberately small language. At the moment that l
 - application,
 - `let ... in ...`,
 - `if ... then ... else ...`,
+- a minimal semicolon-separated top-level declaration form,
 - builtin primitive names `succ`, `pred`, `iszero`, and `add`.
 
 This stage corresponds to the usual front-end syntax phase of a compiler. In theoretical terms, we are turning a source string into a structured syntax tree with source locations. The implementation is currently a **minimal handwritten lexer/parser**, which fits the milestone constraint of avoiding external libraries when possible.
@@ -47,6 +48,7 @@ true
 (\x -> x) 42
 let id = \x -> x in id 42
 if false then 1 else 0
+id = \x -> x; id 42
 ```
 
 ### 2. Names, scope, and binding
@@ -211,6 +213,7 @@ t0 -> t1 -> t0
 - application substitutes by environment, not by textual rewriting;
 - `let` evaluates the bound expression and introduces a new scope;
 - `if` chooses a branch only after checking a boolean guard;
+- semicolon-separated top-level declarations are desugared into nested `let` structure for the current interpreter;
 - let-polymorphism generalizes the bound type scheme and instantiates it at later use sites;
 - a small predefined environment provides arithmetic and predicate primitives without requiring operator syntax yet.
 
@@ -225,6 +228,9 @@ value: VInt 42
 > if false then 1 else 0
 type: Int
 value: VInt 0
+> id = \x -> x; keep = id 42; id keep
+type: Int
+value: VInt 42
 > :quit
 bye
 ```
@@ -253,7 +259,8 @@ The repository now builds as a Stack project with:
 
 - one library,
 - one executable,
-- one test suite.
+- one test suite,
+- expression and minimal program-level regression coverage.
 
 No third-party implementation dependencies have been introduced for the compiler itself so far. The repository-facing documentation is now kept in `docs/`, while `.omx/` remains local orchestration state.
 
@@ -321,6 +328,18 @@ stack exec wyah-compiler
 printf 'if false then 1 else 0\n:quit\n' | stack exec wyah-compiler
 ```
 
+### Top-level declaration model
+
+The interpreter now also supports a minimal program-level form using semicolon-separated top-level declarations followed by a final expression.
+
+```haskell
+id = \x -> x;
+keep = id 42;
+id keep
+```
+
+This is intentionally smaller than a real module system. It exists to pressure the architecture with whole-program structure while still staying inside the Milestone 1 typed-interpreter scope.
+
 ## Current limitations
 
 The implementation is intentionally incomplete. The project is still inside a narrow, semantics-first milestone.
@@ -328,7 +347,8 @@ The implementation is intentionally incomplete. The project is still inside a na
 Not implemented yet:
 
 - parser-level operator syntax (the project currently uses builtin names instead),
-- top-level declarations/modules,
+- recursive or mutually recursive top-level declarations,
+- modules beyond the current single-program declaration model,
 - pattern matching,
 - algebraic datatypes,
 - typeclasses,
@@ -345,10 +365,10 @@ This is a feature, not a bug. The current goal is to make the front-end and type
 
 The next substantial work items are:
 
-- grow the current grouped regression harness into a larger chapter-derived corpus with externalized fixtures;
-- add the next small but coherent language slices from the roadmap;
-- improve diagnostic consistency across parse, rename, infer, and eval;
-- keep extending the typed interpreter until it covers the approved Milestone 1 scope.
+- deepen top-level declaration support beyond the current minimal semicolon-separated form;
+- normalize diagnostics/messages across parser, renamer, inference, and evaluator;
+- decide the next syntax-facing slice after declarations, likely richer term/operator grammar;
+- continue growing the fixture corpus, especially for richer program-shaped inputs.
 
 ### Milestone 2: richer surface language
 

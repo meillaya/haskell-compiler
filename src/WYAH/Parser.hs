@@ -1,6 +1,7 @@
 module WYAH.Parser
   ( ParseError(..)
   , parseExpr
+  , parseProgram
   ) where
 
 import Data.Char (isAlpha, isAlphaNum, isDigit, isSpace)
@@ -22,6 +23,7 @@ data Token
   = TokenLambda Span
   | TokenArrow Span
   | TokenEquals Span
+  | TokenSemi Span
   | TokenLet Span
   | TokenIn Span
   | TokenIf Span
@@ -39,6 +41,7 @@ tokenSpan token = case token of
   TokenLambda sp -> sp
   TokenArrow sp -> sp
   TokenEquals sp -> sp
+  TokenSemi sp -> sp
   TokenLet sp -> sp
   TokenIn sp -> sp
   TokenIf sp -> sp
@@ -57,6 +60,31 @@ parseExpr file input = do
     Left err -> Left err
     Right (expr, []) -> Right expr
     Right (_, token : _) -> Left (unexpectedToken file token)
+
+parseProgram :: FilePath -> String -> Either ParseError Program
+parseProgram file input = do
+  tokens <- tokenize file input
+  case parseProgramTokens file tokens of
+    Left err -> Left err
+    Right (program, []) -> Right program
+    Right (_, token : _) -> Left (unexpectedToken file token)
+
+parseProgramTokens :: FilePath -> [Token] -> Either ParseError (Program, [Token])
+parseProgramTokens file = go []
+  where
+    go decls tokens =
+      case tokens of
+        TokenIdent nameSpan binder : TokenEquals _ : rest -> do
+          (boundExpr, remaining) <- parseTokens file rest
+          case remaining of
+            TokenSemi semiSpan : rest' -> do
+              let decl = Decl (spanBetween nameSpan semiSpan) binder boundExpr
+              go (decls <> [decl]) rest'
+            [] -> Left (ParseError file nameSpan "expected ';' after top-level declaration")
+            token : _ -> Left (ParseError file (tokenSpan token) "expected ';' after top-level declaration")
+        _ -> do
+          (finalExpr, remaining) <- parseTokens file tokens
+          pure (Program decls finalExpr, remaining)
 
 parseTokens :: FilePath -> [Token] -> Either ParseError (Expr, [Token])
 parseTokens file tokens =
@@ -122,6 +150,7 @@ parseApplication file tokens = do
         TokenIn _ : _ -> Right (acc, remaining)
         TokenThen _ : _ -> Right (acc, remaining)
         TokenElse _ : _ -> Right (acc, remaining)
+        TokenSemi _ : _ -> Right (acc, remaining)
         _ ->
           case parseAtom file remaining of
             Left _ -> Right (acc, remaining)
@@ -172,6 +201,7 @@ tokenize file = go startOfInput
       | char == '(' = emit pos [char] TokenLParen rest
       | char == ')' = emit pos [char] TokenRParen rest
       | char == '=' = emit pos [char] TokenEquals rest
+      | char == ';' = emit pos [char] TokenSemi rest
       | char == '-' && take 1 rest == ">" = emit pos "->" TokenArrow (drop 1 rest)
       | isDigit char =
           let (digits, remainder) = span isDigit rest
@@ -210,6 +240,7 @@ describeToken token = case token of
   TokenLambda _ -> "\\"
   TokenArrow _ -> "->"
   TokenEquals _ -> "="
+  TokenSemi _ -> ";"
   TokenLet _ -> "let"
   TokenIn _ -> "in"
   TokenIf _ -> "if"
