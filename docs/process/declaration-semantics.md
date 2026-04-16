@@ -99,3 +99,8 @@ Important current program/declaration error classes:
 - malformed program shape,
 - missing final expression,
 - malformed declaration separator usage.
+
+
+## Annotation extension
+
+Top-level declarations may now carry optional type annotations, and annotated declarations are checked against their inferred types before they are admitted into the top-level environment.

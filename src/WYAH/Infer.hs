@@ -40,7 +40,25 @@ inferExpr expr = do
   pure ty
 
 inferProgram :: RenamedProgram -> Either TypeError Type
-inferProgram = inferExpr . lowerProgram
+inferProgram (RenamedProgram decls finalExpr) = do
+  (_, env, nextId) <- inferDecls preludeEnv 0 decls
+  (_, finalTy, _) <- infer env nextId finalExpr
+  pure finalTy
+
+inferDecls :: Env -> Int -> [RenamedDecl] -> Either TypeError (Subst, Env, Int)
+inferDecls env nextId [] = Right ([], env, nextId)
+inferDecls env nextId (RDecl sp name ann bound : rest) = do
+  (substBound, boundTy, nextId') <- infer env nextId bound
+  let env' = applyEnv substBound env
+      inferredTy = apply substBound boundTy
+  scheme <- case ann of
+    Nothing -> pure (generalize env' inferredTy)
+    Just declaredTy -> do
+      substAnn <- unify sp inferredTy declaredTy
+      pure (Forall [] (apply substAnn declaredTy))
+  let env'' = (name, scheme) : env'
+  (substRest, finalEnv, nextId'') <- inferDecls env'' nextId' rest
+  pure (compose substRest substBound, finalEnv, nextId'')
 
 preludeEnv :: Env
 preludeEnv = mapMaybe builtinScheme builtinBindings

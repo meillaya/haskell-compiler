@@ -13,6 +13,7 @@ module WYAH.Name
 import WYAH.Diagnostic
 import WYAH.Span (Span)
 import WYAH.Syntax
+import WYAH.Type (Type)
 
 data ResolvedName = ResolvedName
   { resolvedOriginal :: Name
@@ -32,7 +33,7 @@ data RenamedExpr
   | RIf Span RenamedExpr RenamedExpr RenamedExpr
   deriving (Eq, Show)
 
-data RenamedDecl = RDecl Span ResolvedName RenamedExpr
+data RenamedDecl = RDecl Span ResolvedName (Maybe Type) RenamedExpr
   deriving (Eq, Show)
 
 data RenamedProgram = RenamedProgram [RenamedDecl] RenamedExpr
@@ -74,11 +75,11 @@ renameProgram (Program decls finalExpr) = do
 lowerProgram :: RenamedProgram -> RenamedExpr
 lowerProgram (RenamedProgram decls finalExpr) = foldr wrap finalExpr decls
   where
-    wrap (RDecl sp name bound) body = RLet sp name bound body
+    wrap (RDecl sp name _ bound) body = RLet sp name bound body
 
 renameDecls :: [(Name, ResolvedName)] -> [(Name, Span)] -> Int -> [Decl] -> Either RenameError ([RenamedDecl], [(Name, ResolvedName)], Int)
 renameDecls env _ nextId [] = Right ([], env, nextId)
-renameDecls env seen nextId (Decl sp name bound : rest) =
+renameDecls env seen nextId (Decl sp name ann bound : rest) =
   case lookup name seen of
     Just firstSpan ->
       Left
@@ -96,7 +97,7 @@ renameDecls env seen nextId (Decl sp name bound : rest) =
           env' = (name, resolved) : env
           seen' = (name, sp) : seen
       (renamedRest, env'', nextId'') <- renameDecls env' seen' (nextId' + 1) rest
-      pure (RDecl sp resolved renamedBound : renamedRest, env'', nextId'')
+      pure (RDecl sp resolved ann renamedBound : renamedRest, env'', nextId'')
 
 go :: [(Name, ResolvedName)] -> Int -> Expr -> Either RenameError (RenamedExpr, Int)
 go env nextId expression =

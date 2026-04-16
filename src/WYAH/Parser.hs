@@ -8,6 +8,7 @@ import Data.Char (isAlpha, isAlphaNum, isDigit, isSpace)
 import WYAH.Diagnostic
 import WYAH.Span
 import WYAH.Syntax
+import WYAH.Type
 
 data ParseError = ParseError
   { parseErrorFile :: FilePath
@@ -29,6 +30,7 @@ instance Show ParseError where
 data Token
   = TokenLambda Span
   | TokenArrow Span
+  | TokenColon Span
   | TokenEquals Span
   | TokenSemi Span
   | TokenLet Span
@@ -48,6 +50,7 @@ tokenSpan :: Token -> Span
 tokenSpan token = case token of
   TokenLambda sp -> sp
   TokenArrow sp -> sp
+  TokenColon sp -> sp
   TokenEquals sp -> sp
   TokenSemi sp -> sp
   TokenLet sp -> sp
@@ -83,6 +86,26 @@ parseProgramTokens file = go []
   where
     go decls tokens =
       case tokens of
+        TokenIdent nameSpan binder : TokenColon _ : rest -> do
+          (annotation, afterType) <- parseTypeTokens file rest
+          case afterType of
+            TokenSemi semiSpan : TokenIdent _ binder' : TokenEquals _ : valueTokens
+              | binder == binder' -> do
+                  (boundExpr, remaining) <- parseTokens file valueTokens
+                  case remaining of
+                    TokenSemi declSemi : rest' ->
+                      if null rest'
+                        then Left (ParseError file declSemi "expected final expression after top-level declarations")
+                        else do
+                          let decl = Decl (spanBetween nameSpan declSemi) binder (Just annotation) boundExpr
+                          go (decls <> [decl]) rest'
+                    [] -> Left (ParseError file nameSpan "expected ';' after annotated top-level declaration")
+                    token : _ -> Left (ParseError file (tokenSpan token) "expected ';' after annotated top-level declaration")
+              | otherwise -> Left (ParseError file (tokenSpan (TokenIdent nameSpan binder')) "type annotation must be followed by a declaration of the same name")
+            TokenSemi semiSpan : [] -> Left (ParseError file semiSpan "expected declaration after type annotation")
+            TokenSemi semiSpan : _ -> Left (ParseError file semiSpan "type annotation must be followed immediately by a matching declaration")
+            [] -> Left (ParseError file nameSpan "expected ';' after top-level type annotation")
+            token : _ -> Left (ParseError file (tokenSpan token) "expected ';' after top-level type annotation")
         TokenIdent nameSpan binder : TokenEquals _ : rest -> do
           (boundExpr, remaining) <- parseTokens file rest
           case remaining of
@@ -90,13 +113,36 @@ parseProgramTokens file = go []
               if null rest'
                 then Left (ParseError file semiSpan "expected final expression after top-level declarations")
                 else do
-                  let decl = Decl (spanBetween nameSpan semiSpan) binder boundExpr
+                  let decl = Decl (spanBetween nameSpan semiSpan) binder Nothing boundExpr
                   go (decls <> [decl]) rest'
             [] -> Left (ParseError file nameSpan "expected ';' after top-level declaration")
             token : _ -> Left (ParseError file (tokenSpan token) "expected ';' after top-level declaration")
         _ -> do
           (finalExpr, remaining) <- parseTokens file tokens
           pure (Program decls finalExpr, remaining)
+
+parseTypeTokens :: FilePath -> [Token] -> Either ParseError (Type, [Token])
+parseTypeTokens file tokens = do
+  (leftTy, rest) <- parseTypeAtom file tokens
+  case rest of
+    TokenArrow _ : more -> do
+      (rightTy, remaining) <- parseTypeTokens file more
+      pure (TFun leftTy rightTy, remaining)
+    _ -> pure (leftTy, rest)
+
+parseTypeAtom :: FilePath -> [Token] -> Either ParseError (Type, [Token])
+parseTypeAtom file tokens =
+  case tokens of
+    TokenIdent _ "Int" : rest -> Right (TInt, rest)
+    TokenIdent _ "Bool" : rest -> Right (TBool, rest)
+    TokenLParen _ : rest -> do
+      (inner, remaining) <- parseTypeTokens file rest
+      case remaining of
+        TokenRParen _ : rest' -> Right (inner, rest')
+        [] -> Left (ParseError file NoSpan "expected closing parenthesis in type annotation")
+        token : _ -> Left (ParseError file (tokenSpan token) "expected closing parenthesis in type annotation")
+    token : _ -> Left (ParseError file (tokenSpan token) "unsupported type syntax in annotation")
+    [] -> Left (ParseError file NoSpan "unexpected end of input in type annotation")
 
 parseTokens :: FilePath -> [Token] -> Either ParseError (Expr, [Token])
 parseTokens file tokens =
@@ -166,7 +212,7 @@ parseAdditive file tokens = do
 parseUnary :: FilePath -> [Token] -> Either ParseError (Expr, [Token])
 parseUnary file tokens =
   case tokens of
-    TokenOp sp "+" : rest -> parseUnary file rest
+    TokenOp _ "+" : rest -> parseUnary file rest
     TokenOp sp "-" : rest -> do
       (expr, remaining) <- parseUnary file rest
       pure (applyUnary sp "pred" expr, remaining)
@@ -247,6 +293,7 @@ tokenize file = go startOfInput
       | char == '\\' = emit pos [char] TokenLambda rest
       | char == '(' = emit pos [char] TokenLParen rest
       | char == ')' = emit pos [char] TokenRParen rest
+      | char == ':' = emit pos [char] TokenColon rest
       | char == '=' = emit pos [char] TokenEquals rest
       | char == ';' = emit pos [char] TokenSemi rest
       | char == '+' = emit pos [char] (\sp -> TokenOp sp "+") rest
@@ -288,6 +335,7 @@ describeToken :: Token -> String
 describeToken token = case token of
   TokenLambda _ -> "\\"
   TokenArrow _ -> "->"
+  TokenColon _ -> ":"
   TokenEquals _ -> "="
   TokenSemi _ -> ";"
   TokenLet _ -> "let"

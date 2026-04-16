@@ -20,6 +20,7 @@ The current plan and process history live under `docs/`, especially:
 - `docs/plans/architecture-wyah-milestone-1.md`
 - `docs/plans/regression-matrix-wyah.md`
 - `docs/process/declaration-semantics.md`
+- `docs/process/declaration-annotations.md`
 - `docs/process/regression-harness.md`
 - `docs/process/diagnostics-assertion-policy.md`
 
@@ -293,6 +294,7 @@ The implementation is still intentionally narrow.
 
 Not implemented yet:
 
+- optional top-level declaration type annotations,
 - recursive or mutually recursive top-level declarations,
 - modules/imports,
 - pattern matching,
@@ -315,7 +317,7 @@ That baseline includes:
 - minimal whole-program support,
 - and a small surface operator layer over existing semantics.
 
-The next semantic/syntax family should now be chosen from this checkpoint by planning.
+The next semantic/syntax family is now the bounded slice of optional top-level declaration type annotations, as approved by planning.
 
 ## Documentation layout
 
