@@ -41,6 +41,7 @@ data Token
   | TokenInt Span Integer
   | TokenBool Span Bool
   | TokenIdent Span Name
+  | TokenOp Span String
   deriving (Eq, Show)
 
 tokenSpan :: Token -> Span
@@ -59,6 +60,7 @@ tokenSpan token = case token of
   TokenInt sp _ -> sp
   TokenBool sp _ -> sp
   TokenIdent sp _ -> sp
+  TokenOp sp _ -> sp
 
 parseExpr :: FilePath -> String -> Either ParseError Expr
 parseExpr file input = do
@@ -102,7 +104,7 @@ parseTokens file tokens =
     TokenLet _ : _ -> parseLet file tokens
     TokenIf _ : _ -> parseIf file tokens
     TokenLambda _ : _ -> parseLambda file tokens
-    _ -> parseApplication file tokens
+    _ -> parseAdditive file tokens
 
 parseLet :: FilePath -> [Token] -> Either ParseError (Expr, [Token])
 parseLet file tokens =
@@ -146,6 +148,28 @@ parseLambda file tokens =
       let exprSp = spanBetween lambdaSpan (exprSpan body)
       pure (Lam exprSp binder body, remaining)
     TokenLambda lambdaSpan : _ -> Left (ParseError file lambdaSpan "expected lambda binder followed by ->")
+    _ -> parseAdditive file tokens
+
+parseAdditive :: FilePath -> [Token] -> Either ParseError (Expr, [Token])
+parseAdditive file tokens = do
+  (firstTerm, rest) <- parseUnary file tokens
+  parseMore firstTerm rest
+  where
+    parseMore acc remaining =
+      case remaining of
+        TokenOp sp "+" : rest -> do
+          (rhs, rest') <- parseUnary file rest
+          let combined = applyBinary sp "add" acc rhs
+          parseMore combined rest'
+        _ -> Right (acc, remaining)
+
+parseUnary :: FilePath -> [Token] -> Either ParseError (Expr, [Token])
+parseUnary file tokens =
+  case tokens of
+    TokenOp sp "+" : rest -> parseUnary file rest
+    TokenOp sp "-" : rest -> do
+      (expr, remaining) <- parseUnary file rest
+      pure (applyUnary sp "pred" expr, remaining)
     _ -> parseApplication file tokens
 
 parseApplication :: FilePath -> [Token] -> Either ParseError (Expr, [Token])
@@ -161,6 +185,7 @@ parseApplication file tokens = do
         TokenThen _ : _ -> Right (acc, remaining)
         TokenElse _ : _ -> Right (acc, remaining)
         TokenSemi _ : _ -> Right (acc, remaining)
+        TokenOp _ _ : _ -> Right (acc, remaining)
         _ ->
           case parseAtom file remaining of
             Left _ -> Right (acc, remaining)
@@ -192,6 +217,18 @@ parseAtom file tokens =
     token : _ -> Left (unexpectedToken file token)
     [] -> Left (ParseError file NoSpan "unexpected end of input")
 
+applyUnary :: Span -> Name -> Expr -> Expr
+applyUnary sp name expr =
+  let fun = Var sp name
+      exprSp = spanBetween (exprSpan fun) (exprSpan expr)
+   in App exprSp fun expr
+
+applyBinary :: Span -> Name -> Expr -> Expr -> Expr
+applyBinary sp name left right =
+  let fun = Var sp name
+      lhsApp = App (spanBetween (exprSpan fun) (exprSpan left)) fun left
+   in App (spanBetween (exprSpan lhsApp) (exprSpan right)) lhsApp right
+
 setExprSpan :: Span -> Expr -> Expr
 setExprSpan sp expr = case expr of
   Var _ name -> Var sp name
@@ -212,7 +249,9 @@ tokenize file = go startOfInput
       | char == ')' = emit pos [char] TokenRParen rest
       | char == '=' = emit pos [char] TokenEquals rest
       | char == ';' = emit pos [char] TokenSemi rest
+      | char == '+' = emit pos [char] (\sp -> TokenOp sp "+") rest
       | char == '-' && take 1 rest == ">" = emit pos "->" TokenArrow (drop 1 rest)
+      | char == '-' = emit pos [char] (\sp -> TokenOp sp "-") rest
       | isDigit char =
           let (digits, remainder) = span isDigit rest
               lexeme = char : digits
@@ -261,3 +300,4 @@ describeToken token = case token of
   TokenInt _ n -> show n
   TokenBool _ b -> if b then "true" else "false"
   TokenIdent _ name -> name
+  TokenOp _ op -> op

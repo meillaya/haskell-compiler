@@ -9,3 +9,7 @@ eval-iszero|expr|eval|eval-value|active-now|iszero 0|type: Bool\nvalue: VBool Tr
 eval-add|expr|eval|eval-value|active-now|add 2 3|type: Int\nvalue: VInt 5|Evaluation|addition primitive
 eval-primitive-if|expr|eval|eval-value|active-now|if iszero 0 then 1 else 2|type: Int\nvalue: VInt 1|Evaluation|primitive-driven conditional
 eval-pipeline-error|expr|pipeline|pipeline-error|active-now|42 0|cannot unify|Evaluation|ill-typed application rejected before eval
+eval-add-op|expr|eval|eval-value|active-now|1 + 2|type: Int\nvalue: VInt 3|Evaluation|operator addition desugars to add
+eval-add-op-chain|expr|eval|eval-value|active-now|1 + 2 + 3|type: Int\nvalue: VInt 6|Evaluation|left-associative addition operator
+eval-op-with-builtin|expr|eval|eval-value|active-now|1 + succ 2|type: Int\nvalue: VInt 4|Evaluation|operator grammar composes with builtin application
+eval-prefix-minus|expr|eval|eval-value|active-now|- 1|type: Int\nvalue: VInt 0|Evaluation|prefix minus reuses pred builtin

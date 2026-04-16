@@ -197,6 +197,8 @@ let id = \x -> x in id 42
 if true then 1 else 0
 succ 0
 add 2 3
+1 + 2
+- 1
 ```
 
 ### Supported types
@@ -216,7 +218,7 @@ t0 -> t1 -> t0
 - `if` chooses a branch only after checking a boolean guard;
 - semicolon-separated top-level declarations are desugared into nested `let` structure for the current interpreter;
 - let-polymorphism generalizes the bound type scheme and instantiates it at later use sites;
-- a small predefined environment provides arithmetic and predicate primitives without requiring operator syntax yet.
+- a small predefined environment provides arithmetic and predicate primitives, and a bounded surface operator layer now desugars into those existing semantics.
 
 ### Example REPL interaction
 
@@ -347,7 +349,6 @@ The implementation is intentionally incomplete. The project is still inside a na
 
 Not implemented yet:
 
-- parser-level operator syntax (the project currently uses builtin names instead),
 - recursive or mutually recursive top-level declarations,
 - modules beyond the current single-program declaration model,
 - pattern matching,
