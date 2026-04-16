@@ -2,7 +2,7 @@
 
 A pedagogical Haskell compiler project inspired by **Stephen Diehl's _Write You a Haskell_**. The goal is not to clone the book line-for-line, but to reimplement its core ideas in a way that keeps the **theory**, **architecture**, and **implementation tradeoffs** explicit.
 
-Right now the project is still in the **typed-interpreter stage** of the roadmap. That is deliberate. The current milestone is to make parsing, name resolution, Hindley–Milner inference, desugaring, evaluation, and diagnostics correct and explainable **before** introducing backend complexity like LLVM.
+Right now the project is in a **verified typed-interpreter baseline** stage. The current emphasis is still semantic clarity over backend work: parsing, name resolution, Hindley–Milner inference, desugaring, evaluation, diagnostics, and bounded whole-program structure are in place before any LLVM/codegen work is attempted.
 
 ## Project goals
 
@@ -13,14 +13,15 @@ This repository exists as a learning vehicle for:
 - how Haskell's algebraic data types, pattern matching, immutability, and recursion support compiler implementation;
 - how to grow a language in staged milestones without losing semantic discipline.
 
-The current plan is now documented in `docs/`, especially:
+The current plan and process history live under `docs/`, especially:
 
 - `docs/plans/prd-wyah-compiler-learning-roadmap.md`
 - `docs/plans/roadmap-wyah-build-order.md`
 - `docs/plans/architecture-wyah-milestone-1.md`
 - `docs/plans/regression-matrix-wyah.md`
-- `docs/process/deep-interview-wyah-compiler-learning-roadmap.md`
 - `docs/process/declaration-semantics.md`
+- `docs/process/regression-harness.md`
+- `docs/process/diagnostics-assertion-policy.md`
 
 ## Theory in scope so far
 
@@ -36,9 +37,10 @@ The parser currently handles a deliberately small language. At the moment that l
 - `let ... in ...`,
 - `if ... then ... else ...`,
 - a minimal semicolon-separated top-level declaration form,
-- builtin primitive names `succ`, `pred`, `iszero`, and `add`.
+- builtin primitive names `succ`, `pred`, `iszero`, and `add`,
+- a surface-only operator layer: infix `+` and prefix `-`.
 
-This stage corresponds to the usual front-end syntax phase of a compiler. In theoretical terms, we are turning a source string into a structured syntax tree with source locations. The implementation is currently a **minimal handwritten lexer/parser**, which fits the milestone constraint of avoiding external libraries when possible.
+This stage corresponds to the usual front-end syntax phase of a compiler. In theoretical terms, we are turning source text into a structured syntax tree with source locations. The implementation remains a mostly handwritten lexer/parser, which fits the current milestone’s low-dependency learning goals.
 
 Example forms accepted today:
 
@@ -50,24 +52,27 @@ true
 let id = \x -> x in id 42
 if false then 1 else 0
 id = \x -> x; id 42
+1 + succ 2
+- 1
 ```
 
 ### 2. Names, scope, and binding
 
 Once a program is parsed, it is renamed. Renaming is where syntax starts becoming semantics. A variable name in source code is only a string; after renaming it becomes a uniquely resolved binder reference.
 
-This prevents accidental capture and makes later passes simpler. In practice, the renamer currently:
+The renamer currently:
 
 - assigns unique IDs to binders,
 - resolves variable occurrences against the nearest binder,
 - rejects unbound variables,
-- preserves source spans for diagnostics.
+- preserves source spans for diagnostics,
+- enforces top-level declaration rules such as duplicate-name rejection and sequential visibility.
 
-This is the first place where the project directly reflects the theory of lexical scope and alpha-equivalence.
+This reflects the theory of lexical scope, alpha-equivalence, and environment-based resolution.
 
 ### 3. Hindley–Milner type inference
 
-The current type system is still small, but it already exercises the most important ideas:
+The current type system already exercises the core ideas needed for Milestone 1:
 
 - type variables,
 - function types,
@@ -76,30 +81,20 @@ The current type system is still small, but it already exercises the most import
 - let-generalization,
 - let-instantiation.
 
-In other words, this project already contains the beginning of an **Algorithm W-style** inference engine. The implementation currently supports polymorphic `let` bindings in the usual Hindley–Milner style.
+This is an Algorithm W-style baseline. It supports polymorphic `let` bindings and checks current programs through the same inference machinery used for expressions.
 
-For example, the following now works:
+### 4. Program structure and lowering
 
-```haskell
-let id = \x -> x in let keep = id 42 in id (\y -> y)
-```
+The compiler now has an explicit `Program` / `Decl` model. A program is currently:
 
-and infers a function type for the final expression.
+- an ordered list of top-level declarations,
+- followed by a required final expression.
 
-### 4. Core language and desugaring boundary
-
-The project separates the surface syntax from a smaller internal representation in `WYAH.Core`. This is the first real architectural seam of the compiler.
-
-The purpose of the Core language is not optimization yet. Instead, it serves two more basic goals:
-
-- make evaluation rules simpler and more explicit;
-- ensure later phases do not depend on parser-oriented surface structure.
-
-The current core still closely mirrors the surface language, but it already provides a clean place to evolve future semantic passes.
+The important architectural invariant is that program shape is validated and renamed **before** lowering into expression-level structure. The current lowering step then desugars declarations into nested `let`s for the existing interpreter pipeline.
 
 ### 5. Evaluation
 
-Evaluation is currently interpreter-based. That keeps the project aligned with the current milestone: prove the semantics of the front-end before generating machine code.
+Evaluation is interpreter-based. That is deliberate: the project is still proving the semantics of the front-end before generating machine code.
 
 The evaluator currently supports:
 
@@ -108,39 +103,29 @@ The evaluator currently supports:
 - closures,
 - application,
 - `let`,
-- `if`.
-
-This gives the project a complete vertical slice:
-
-```text
-source -> parse -> rename -> infer -> core -> evaluate
-```
-
-That full path is already executable through the REPL.
+- `if`,
+- predefined primitives,
+- programs lowered from top-level declarations.
 
 ### 6. Diagnostics and source spans
 
-A serious compiler needs more than success cases. It must explain failure precisely. The current implementation now tracks parser-level spans and uses them in diagnostics. Rename and inference errors also report locations.
+A serious compiler must explain failure precisely. The project now has a normalized diagnostic contract across parser, renamer, inferencer, and evaluator:
 
-That means failures like these are intentional and test-covered:
+```text
+phase=<phase>; source=<source>; span=<span>; message=<message>
+```
 
-- malformed syntax;
-- unbound variables;
-- branch type mismatches;
-- non-boolean conditional guards;
-- occurs-check failures;
-- attempts to apply non-functions.
-
-This is still a minimal diagnostics system, not a polished one, but it already enforces an important compiler design rule: **error reporting is part of semantics work, not a cosmetic afterthought**.
+This is intentionally structural and testable. It supports the current fixture harness without overcommitting to a polished UX layer too early.
 
 ## Architecture so far
 
-The codebase is intentionally small and pass-oriented.
+The codebase remains intentionally small and pass-oriented.
 
 ```text
 app/
   Main.hs
 src/WYAH/
+  Diagnostic.hs
   Span.hs
   Syntax.hs
   Parser.hs
@@ -152,38 +137,41 @@ src/WYAH/
   Repl.hs
 test/
   Main.hs
+  WYAH/TestCases.hs
+  fixtures/
 ```
 
+### `WYAH.Diagnostic`
+Provides the normalized phase/source/span/message rendering contract.
+
 ### `WYAH.Span`
-Tracks source positions and spans. This is the shared location layer used by diagnostics.
+Tracks source positions and spans.
 
 ### `WYAH.Syntax`
-Defines the surface AST. This is the parsed language before names are resolved.
+Defines surface syntax, declarations, and program structure.
 
 ### `WYAH.Parser`
-Implements tokenization and parsing. The parser attaches spans directly to syntax nodes and produces parse errors with file/position context.
+Implements tokenization and parsing for both expressions and current program-shaped inputs.
 
 ### `WYAH.Name`
-Implements renaming. This resolves lexical scope and gives each binder a unique identity.
+Implements renaming, top-level declaration checks, and renamed program lowering.
 
 ### `WYAH.Type`
-Defines the type language used by inference. Right now that includes `Int`, `Bool`, type variables, and function types.
+Defines the current type language: `Int`, `Bool`, variables, and function types.
 
 ### `WYAH.Infer`
-Implements type inference and unification. This module currently contains the most theory-heavy logic in the project.
+Implements Hindley–Milner inference and current program-level checking through lowered forms.
 
 ### `WYAH.Core`
-Defines the smaller internal language used after renaming and inference.
+Defines the smaller internal expression language used after renaming.
 
 ### `WYAH.Eval`
-Evaluates the Core language using closures and environments.
+Evaluates the Core language using closures and predefined runtime bindings.
 
 ### `WYAH.Repl`
-Wires everything together into the interactive driver.
+Connects parsing, renaming, inference, lowering, evaluation, and output.
 
 ## Implementation details achieved so far
-
-The current implementation supports the following language fragment.
 
 ### Supported syntax
 
@@ -199,6 +187,7 @@ succ 0
 add 2 3
 1 + 2
 - 1
+id = \x -> x; keep = id 42; id keep
 ```
 
 ### Supported types
@@ -216,9 +205,11 @@ t0 -> t1 -> t0
 - application substitutes by environment, not by textual rewriting;
 - `let` evaluates the bound expression and introduces a new scope;
 - `if` chooses a branch only after checking a boolean guard;
-- semicolon-separated top-level declarations are desugared into nested `let` structure for the current interpreter;
+- semicolon-separated top-level declarations are first-class through parsing/renaming and then lower into expression-level structure only after program validation;
+- top-level declarations are sequential, non-recursive, and require a final expression;
 - let-polymorphism generalizes the bound type scheme and instantiates it at later use sites;
-- a small predefined environment provides arithmetic and predicate primitives, and a bounded surface operator layer now desugars into those existing semantics.
+- a predefined environment provides arithmetic and predicate primitives;
+- the operator layer is surface-only and desugars to existing builtin/application semantics.
 
 ### Example REPL interaction
 
@@ -228,82 +219,41 @@ WYAH scaffold REPL (:quit to exit)
 > let id = \x -> x in id 42
 type: Int
 value: VInt 42
-> if false then 1 else 0
-type: Int
-value: VInt 0
 > id = \x -> x; keep = id 42; id keep
 type: Int
 value: VInt 42
+> 1 + succ 2
+type: Int
+value: VInt 4
 > :quit
 bye
 ```
 
 ## What has been achieved so far
 
-The project has already completed several important milestones inside the overall typed-interpreter roadmap.
+The project has completed a significant Milestone-1 baseline:
 
-### Planning and milestone definition
-
-The initial Ralph / planning loop produced:
-
-- a PRD,
-- a test strategy,
-- an architecture note,
-- a regression matrix,
-- a milestone tracker,
-- a parser decision record,
-- a diagnostics policy.
-
-These documents now live under `docs/plans/` and `docs/process/`, while `.omx/` itself is treated as local agent/runtime state and ignored by git.
-
-### Working Stack scaffold
-
-The repository now builds as a Stack project with:
-
-- one library,
-- one executable,
-- one test suite,
-- expression and minimal program-level regression coverage.
-
-No third-party implementation dependencies have been introduced for the compiler itself so far. The repository-facing documentation is now kept in `docs/`, while `.omx/` remains local orchestration state.
-
-### End-to-end pipeline
-
-The following pipeline works today:
-
-```text
-Source text
-  -> tokenization/parsing
-  -> AST with spans
-  -> renaming
-  -> HM inference
-  -> Core conversion
-  -> evaluation
-  -> REPL output
-```
-
-### Regression coverage currently implemented
-
-The current executable tests are now organized as a grouped fixture-driven regression harness under `test/fixtures/`. The harness currently covers:
-
-- parsing of literals, lambdas, `let`, booleans, and conditionals;
-- parse failures with file/span reporting;
-- scope failures with source locations;
-- inference of `id`, `const`, booleans, conditionals, and builtin primitives;
-- occurs-check failure and branch/type mismatch failures;
-- let-polymorphism reuse;
-- evaluation of application, `let`, conditionals, and the predefined primitives `succ`, `pred`, `iszero`, and `add`;
-- primitive-driven control-flow examples;
-- ill-typed application rejected before evaluation.
+- planning artifacts and milestone docs,
+- Stack scaffold,
+- spans and normalized diagnostics,
+- expression semantics,
+- let-polymorphism,
+- booleans and conditionals,
+- builtins,
+- a fixture-driven regression harness,
+- a minimal program/declaration model,
+- a surface-only operator layer,
+- a consolidation pass refreshing docs and regression tracking.
 
 ## Verification model
 
-The test harness now has two layers:
+The current regression harness is canonical.
 
-- a small set of inline structural tests for parser-span and rename-location details;
-- an external fixture corpus under `test/fixtures/` for phase-owned inference/evaluation and broader regression coverage.
+It combines:
+- a few inline structural tests for parser-span and rename-location checks;
+- grouped external fixtures under `test/fixtures/` for parser, rename, infer, eval, and program-level behavior.
 
-The fixture work is now part of the normal verification surface for the current baseline. It covers both expression-shaped and program-shaped inputs and is used to protect parser, renamer, inference, evaluation, and whole-pipeline behavior.
+The harness now covers both `expr` and `program` source kinds and is the primary source of semantic confidence for the current baseline.
 
 ## Build, run, and test
 
@@ -325,86 +275,47 @@ stack test
 stack exec wyah-compiler
 ```
 
-### Run a one-shot REPL smoke test from the shell
+### Expression-mode smoke test
 
 ```bash
-printf 'if false then 1 else 0\n:quit\n' | stack exec wyah-compiler
+printf '1 + succ 2\n:quit\n' | stack exec wyah-compiler
 ```
 
-### Top-level declaration model
+### Program-mode smoke test
 
-The interpreter now also supports a minimal program-level form using semicolon-separated top-level declarations followed by a final expression.
-
-```haskell
-id = \x -> x;
-keep = id 42;
-id keep
+```bash
+printf 'id = \\x -> x; keep = id 42; id keep\n:quit\n' | stack exec wyah-compiler
 ```
-
-This is intentionally smaller than a real module system. It exists to pressure the architecture with whole-program structure while still staying inside the Milestone 1 typed-interpreter scope. In the current implementation, top-level declarations are **sequential and non-recursive**, and duplicate top-level names are rejected.
 
 ## Current limitations
 
-The implementation is intentionally incomplete. The project is still inside a narrow, semantics-first milestone.
+The implementation is still intentionally narrow.
 
 Not implemented yet:
 
 - recursive or mutually recursive top-level declarations,
-- modules beyond the current single-program declaration model,
+- modules/imports,
 - pattern matching,
 - algebraic datatypes,
 - typeclasses,
 - layout-sensitive parsing,
-- richer error presentation,
+- rich multi-span diagnostics,
 - optimization passes,
 - LLVM or native code generation.
 
-This is a feature, not a bug. The current goal is to make the front-end and typed interpreter trustworthy before widening the language.
+This is still a semantics-first baseline, not a production language.
 
-## Next major milestones
+## Current checkpoint
 
-### Milestone 1 remainder: richer typed interpreter
+The repository is currently at a **verified typed-interpreter baseline**.
 
-The next substantial work items are:
+That baseline includes:
+- normalized diagnostics,
+- fixture-driven verification,
+- minimal whole-program support,
+- and a small surface operator layer over existing semantics.
 
-- deepen top-level declaration support beyond the current minimal semicolon-separated form;
-- normalize diagnostics/messages across parser, renamer, inference, and evaluator;
-- decide the next syntax-facing slice after declarations, likely richer term/operator grammar;
-- continue growing the fixture corpus, especially for richer program-shaped inputs.
-
-### Milestone 2: richer surface language
-
-After the current milestone stabilizes, the project should move into:
-
-- parser ergonomics,
-- more declarations,
-- minimal datatype support,
-- better spans and diagnostics,
-- more of the ProtoHaskell-like surface language.
-
-### Milestone 3+: advanced front-end and backend preparation
-
-Longer-term milestones include:
-
-- stronger intermediate representations,
-- broader semantic coverage,
-- datatype and pattern compilation,
-- eventual backend preparation,
-- LLVM code generation only after the semantic core is trusted.
-
-## Development notes
-
-### Why use a handwritten parser first?
-
-This is a deliberate learning tradeoff. A handwritten parser makes tokenization, precedence, and location tracking visible. Later milestones may justify Alex or Happy, but the current milestone values transparency over convenience.
-
-### Why an interpreter before LLVM?
-
-Because code generation is only worth doing once the source language semantics are stable. An interpreter gives immediate feedback on whether parsing, binding, inference, and control flow mean what they are supposed to mean.
-
-### Why so much emphasis on tests now?
-
-Because “compiler progress” is easy to fake with a few demos. A regression suite derived from the book prevents accidental semantic drift and keeps each new feature tied to an explicit claim.
+The next semantic/syntax family should now be chosen from this checkpoint by planning.
 
 ## Documentation layout
 
@@ -412,9 +323,9 @@ Project-facing documentation lives in `docs/`:
 
 - `docs/WYAH.pdf` — local copy of the reference text
 - `docs/plans/` — roadmap, architecture, milestones, regression matrix, diagnostics policy, PRD
-- `docs/process/` — captured deep-interview/spec/context artifacts that explain how the current direction was chosen
+- `docs/process/` — declaration semantics, regression harness, diagnostics assertion policy, and planning/process artifacts
 
-The `.omx/` directory still exists locally for agent runtime state, but it is now ignored by git and should not be treated as canonical project documentation.
+`.omx/` remains local runtime/orchestration state and is not canonical project documentation.
 
 ## References
 
@@ -428,5 +339,3 @@ The following resources are the required foundation for implementing this projec
 - **GHC Commentary / GHC compiler documentation** — required to understand how a large production Haskell compiler organizes passes and intermediate languages. <https://gitlab.haskell.org/ghc/ghc/-/wikis/commentary/compiler>
 - **Alex User Guide** — needed when the project grows beyond the handwritten parser stage into generated lexers. <https://haskell-alex.readthedocs.io/>
 - **Happy Documentation** — needed for later parser milestones if the grammar outgrows the current handwritten approach. <https://haskell-happy.readthedocs.io/>
-- **Stephen Diehl, _What I Wish I Knew When Learning Haskell_** — useful companion for the Haskell techniques needed to keep the compiler implementation clean and idiomatic. <https://sdiehl.github.io/wiwinwlh/>
-
