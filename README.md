@@ -1,197 +1,210 @@
 # wyah-compiler
 
-A pedagogical implementation of the compiler path in Stephen Diehl's
-**_Write You a Haskell_**.  The project follows the book's ProtoHaskell
-language and pipeline, but it is an independent implementation with explicit
-intermediate representations, a fixture-driven regression suite, and a small
-dependency surface.
+A compiler for ProtoHaskell, the language in Stephen Diehl's *Write You a Haskell*. The compiler resolves names, checks kinds and types, elaborates type-class evidence into dictionaries, lowers the program to a small Core language, and runs Core in a call-by-need interpreter.
 
-The compiler is intentionally a **semantics-first, interpreter-backed**
-implementation.  It covers the complete ProtoHaskell language described in
-the book's frontend chapters (8–17); the book's LLVM chapter is a tutorial for
-a later, native "Fun" language and does not contain a ProtoHaskell backend.
+The pass boundaries are explicit. Each pass has an input representation, an output representation, and a contract that the next pass can rely on. The implementation starts from source text and ends at a value or an `IO` action. It does not have a native backend.
 
-```text
-source
-  -> lexer + layout
-  -> parser                 (surface AST)
-  -> renamer                (unique binders, grouped equations)
-  -> desugar                (do notation, comprehensions)
-  -> kind inference         (canonical types, type-class environments)
-  -> Hindley–Milner         (constraint generation, generalization)
-  -> elaboration            (dictionaries, pattern-match compilation)
-  -> Core                   (small, evidence-explicit IR)
-  -> lazy interpreter       (call-by-need thunks, IO actions)
-```
+Current baseline: 146 regression cases pass on GHC 9.10.3. The tarball produced by `cabal sdist` passes the same suite.
 
-## Status
-
-The repository now implements a complete interpreted ProtoHaskell pipeline:
-
-- layout-sensitive lexer and parser;
-- data declarations in regular and GADT-style syntax, including records;
-- type synonyms with expansion and saturation checks;
-- single-parameter type classes, instances, superclasses, and instance
-  contexts;
-- type signatures (`::`, `forall`, and contexts), local signatures, and
-  expression annotations;
-- function equations with nested patterns, guards, pattern guards, `where`,
-  and recursion;
-- `let`, `if`, `case`, `do`, list/tuple/range syntax, list comprehensions,
-  operator sections, and custom fixities;
-- Hindley–Milner inference with let-polymorphism, occurs checks, qualified
-  schemes, and dictionary-passing elaboration;
-- lazy evaluation with recursive bindings and infinite lists;
-- `IO` actions, `do` notation, and the book's `fix` combinator;
-- a REPL with `:load`, `:reload`, `:browse`, `:type`, `:kind`, `:core`, `:source`,
-  `:module`, and `:quit`;
-- a file runner and a fixture-driven regression suite.
-
-The current verified baseline is **146 passing regression cases** (inline
-structural tests plus parser, renaming, kind, inference, evaluation, program,
-and class fixtures).
-
-## Try it
+## Quick start
 
 ```bash
 cabal build all
 cabal test
-
-printf '1 + 2 * 3\n:quit\n' | cabal run wyah-compiler
 cabal run wyah-compiler -- examples/primes.fun
 ```
 
-Expected file-runner output includes the inferred type and the evaluated
-value:
+The file runner prints the inferred type of `main` and the evaluated value. With no file argument, the executable starts the REPL.
 
 ```text
+$ cabal run wyah-compiler -- examples/primes.fun
 type: [Int]
-value: [2, 3, 5, 7, 11, 13, 17, 19]
+value: [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
 ```
 
-The REPL keeps declarations between lines and evaluates expressions in the
-accumulated scope:
+![Compiler pipeline: source text to a lazy value](docs/figures/architecture.png)
+
+## Pipeline
+
+The compiler has eight passes over four representations. The arrows in the figure name the representation handed to the next pass.
+
+| Pass | Module | Input to output | Contract |
+| --- | --- | --- | --- |
+| Lex and layout | `WYAH.Lexer` | `Text` to `[Token]` | Inserts virtual braces and semicolons. Tracks bracket depth. |
+| Parse | `WYAH.Parser` | `[Token]` to `Module` | Recursive descent with a fixity prepass. Every surface node carries a span. |
+| Rename | `WYAH.Renamer` | `Module` to `RModule` | Resolves every name. Groups equations. Adds record selectors. |
+| Desugar | `WYAH.Desugar` | `RModule` to `RModule` | Removes `do` notation and list comprehensions. |
+| Kind | `WYAH.Kind` | `RModule` to `CheckedModule` | Expands synonyms. Assigns kinds. Builds data, class, and instance environments. |
+| Infer | `WYAH.Infer` | `CheckedModule` to `InferredModule` | Solves constraints. Generalizes schemes. Records evidence ids. |
+| Elaborate | `WYAH.Elaborate` | `CheckedModule` and `InferredModule` to `CoreModule` | Makes dictionaries explicit. Compiles pattern matches to cases. |
+| Evaluate | `WYAH.Eval` | `CoreModule` to `Value` or `IO` | Call-by-need thunks, recursive environments, primitive dispatch. |
+
+`WYAH.Repl` composes the passes, normalizes failures, and provides the REPL and file runner. `WYAH.Prelude` seeds built-in names and schemes. `WYAH.Diagnostic` defines the phase, source, span, and message contract used by every pass.
+
+## Representations
+
+| Representation | Type | What it guarantees |
+| --- | --- | --- |
+| Surface | `Module` | Syntax is parsed. Names are unresolved. Spans are present. |
+| Renamed | `RModule` | Every binder is a module-unique `ResolvedName`. Equations are grouped. Scopes are explicit. |
+| Typed | `InferredModule` | Types are canonical. Schemes carry predicates. Every constrained occurrence has an `EvidenceId`. |
+| Core | `CoreModule` | Type-class evidence is an explicit argument. Patterns are cases. Source sugar is gone. Spans are gone. |
+
+Core has no source spans. Evaluation errors report the source file and a structured message, with `span=<unknown>`. Parse, rename, kind, and inference errors carry a source span.
+
+## Frontend
+
+The lexer implements the Haskell layout algorithm directly. It tracks indentation contexts for `where`, `let`, `do`, `of`, and `class` blocks, emits virtual braces and semicolons, and suspends layout insertion inside parentheses and brackets. A `where` after a `do` or `of` block closes that block, except when the `where` belongs to a case alternative.
+
+The parser is handwritten. A prepass collects fixity declarations before expressions are parsed, so an operator can be used before its fixity declaration. Expression parsing uses precedence climbing. Patterns, types, guards, and declarations have separate entry points. Parser failures carry the offending token and span, including a zero-width span at end of input.
+
+The renamer assigns every binder a fresh integer. Top-level declarations are mutually recursive. Function equations are grouped before inference. Record fields generate selector functions, including selectors shared by several constructors. The renamer rejects class default methods, instance method signatures, unsupported `deriving`, non-linear patterns, duplicate declarations, and unbound names.
+
+## Kinds and types
+
+Kind inference assigns a metavariable to each data parameter and refines it from constructor field uses. Unresolved metavariables default to `*`. A declaration such as `data T1 f a = T1 (f a)` gives `T1 :: (* -> *) -> * -> *`. Synonyms are expanded before kind checking and must be fully applied.
+
+Types use the canonical form:
 
 ```text
-ProtoHaskell Compiler 0.1.0 (:help for commands, :quit to exit)
-> id x = x
-id :: forall t0. t0 -> t0
-> id 42
-type: Int
-value: 42
-> :type same
-forall t0. Eq2 t0 => t0 -> t0 -> Bool
+Type   = TVariable TVar
+       | TConstructor TyCon
+       | TApplication Type Type
+       | TFunction Type Type
+Scheme = Forall [TVar] [Pred] Type
+Pred   = Pred { predClass :: Name, predType :: Type }
 ```
 
-## Language examples
+![Inference: constraints in, dictionaries out](docs/figures/inference.png)
 
-### Algebraic data types and pattern matching
+Inference starts from a judgment and generates equality and class constraints. A single substitution is threaded through the pass. Unification runs an occurs check, so `a ~ a -> b` fails instead of building an infinite type. Generalization quantifies type variables that do not occur free in the environment and turns constraints over those variables into predicates on the scheme.
 
-```haskell
-data Maybe2 a = Nothing2 | Just2 a
-
-fromMaybe d Nothing2   = d
-fromMaybe d (Just2 x)  = x
-
-main = fromMaybe 0 (Just2 42)
+```text
+Γ ⊢ e : τ
+S = mgu(τ₁, τ₂)
+α ∉ ftv(Γ)  =>  Γ ⊢ e : ∀α. τ
 ```
 
-### Guards, where, and recursion
+Signatures are checked by skolemizing their quantified variables. The body is inferred with the signature predicates as givens, then unified with the skolemized type. Instance heads are matched one way. Instance contexts are solved recursively with a depth bound. Duplicate instance heads, bare type-variable heads, context variables outside the head, and instances with missing methods are rejected.
 
-```haskell
-sign x
-  | x > 0     = 1
-  | x < 0     = -1
-  | otherwise = 0
-
-sumTo n = go 0 1
-  where
-    go acc i
-      | i > n     = acc
-      | otherwise = go (acc + i) (i + 1)
-
-main = sumTo 10
-```
-
-### Type classes and dictionaries
+A constrained binding becomes a function of its dictionaries. For example:
 
 ```haskell
 class Eq2 a where
   eq2 :: a -> a -> Bool
 
-instance Eq2 Int where
-  eq2 x y = x == y
-
-instance Eq2 a => Eq2 [a] where
-  eq2 xs ys = case xs of
-    []       -> case ys of
-                  [] -> True
-                  _  -> False
-    (x:xs')  -> case ys of
-                  []       -> False
-                  (y:ys')  -> if eq2 x y then eq2 xs' ys' else False
-
 same :: Eq2 a => a -> a -> Bool
 same x y = eq2 x y
-
-main = same [1,2,3] [1,2,3]
 ```
 
-Elaboration turns the constraint into a dictionary parameter and selects the
-instance dictionary at the use site.
+Core represents `same` as a lambda with a dictionary parameter. A call to `eq2` becomes a field selection from that dictionary. Instance dictionaries are values. Superclass dictionaries are fields built during instance elaboration.
 
-### Lazy lists
-
-```haskell
-sieve [] = []
-sieve (p:ps) = p : sieve (filter (nonMultiple p) ps)
-
-nonMultiple p n = ((n / p) * p) /= n
-
-primes = sieve [2..]
-
-main = take 5 primes
+```text
+same = \dEq2 -> \x -> \y -> eq2 dEq2 x y
 ```
 
-### IO and do notation
+Arithmetic and comparison primitives are monomorphic over `Int`. User-defined classes exercise the dictionary path. Built-in `IO` is handled by the evaluator rather than by a user-visible `Monad` class.
 
-```haskell
-greet name = do
-  putStr "Hello, "
-  putStrLn name
+## Core and evaluation
 
-main = do
-  name <- getLine
-  greet name
+Core has variables, literals, lambdas, application, non-recursive and recursive lets, cases, constructors, dictionaries, dictionary selection, and structured errors. Elaboration compiles each function equation into a lambda and a chain of cases. A failed match falls through to the next equation; an exhausted chain raises `pattern match failure`.
+
+The evaluator uses `ThunkValue` and `ThunkDelay`. Applications, let bindings, top-level bindings, and dictionary fields are delayed and shared. `CLetRec` ties the recursive environment knot in Haskell. Values include integers, booleans, characters, constructors, closures, primitives, partial constructor applications, dictionaries, and `IO` actions.
+
+`IO` actions are values of type `IO (Either EvalError Value)`. The driver runs the action for `main` or for a REPL expression. `fix` is a primitive. Infinite lists work because constructor fields are thunks and `take` forces only the prefix it needs.
+
+## Verification
+
+![Verification evidence by pass](docs/figures/verification.png)
+
+The suite has 146 active cases: 98 TSV fixtures and 48 inline structural tests. Of those, 23 assert rejection or a runtime failure. The counts by pass are:
+
+| Pass | Cases | Fixtures | Inline |
+| --- | ---: | ---: | ---: |
+| Parsing | 30 | 20 | 10 |
+| Renaming | 8 | 3 | 5 |
+| Kinds | 4 | 2 | 2 |
+| Inference | 33 | 24 | 9 |
+| Evaluation | 71 | 49 | 22 |
+| **Total** | **146** | **98** | **48** |
+
+The parser tests check spans, layout block structure, fixity, sections, ranges, records, GADT syntax, and end-of-input failures. Renaming tests cover shadowing, recursive scope, unbound names, duplicate declarations, and non-linear patterns. Kind tests cover higher-kinded parameters, ill-kinded constructors, and synonym errors. Inference tests cover let-polymorphism, occurs checks, annotations, local signatures, signature mismatches, class schemes, superclasses, and instance contexts. Evaluation tests cover arithmetic, pattern matching, guards, `where`, lazy lists, comprehensions, records, dictionaries, `fix`, `do`, `IO`, and runtime failures.
+
+Every diagnostic uses the same contract:
+
+```text
+phase=<phase>; source=<source>; span=<span>; message=<message>
 ```
 
-## Build and test
+`cabal sdist` includes the fixtures, examples, documentation, and figures. The extracted tarball passes `cabal test`.
 
-The project is tested with GHC 9.10.3 and declares support for GHC 9.6.7 and
-9.10.3.
+The suite is evidence about the implementation. It is not a mechanized soundness proof. A formal proof would need a small-step semantics, progress, and preservation for Core; that work is not in this tree. There is also no Core type checker, so elaboration relies on the source-level type checker and the regression suite.
 
-### Cabal
+## Language coverage
+
+| Area | Implemented |
+| --- | --- |
+| Declarations | Function equations, signatures, data declarations in regular and GADT syntax, records with selectors, type synonyms, single-parameter classes, instances, fixity declarations. |
+| Expressions | Variables, constructors, literals, lambdas, application, `let`, `if`, `case`, `do`, lists, tuples, ranges, list comprehensions, operator sections, annotations. |
+| Patterns | Variables, wildcards, literals, constructors, tuples, lists, as-patterns, parenthesized annotations. |
+| Guards | Expression guards, pattern guards, comma-separated guard lists, guards in equations and case alternatives. |
+| Types | Type variables, constructors, application, arrows, lists, tuples, `forall`, class contexts, higher-kinded data parameters. |
+| Classes | Single-parameter classes, superclasses, instance contexts, dictionary elaboration, method selection. |
+| Runtime | `Int`, `Bool`, `Char`, lists, tuples, algebraic data, closures, dictionaries, `fix`, built-in `IO`. |
+| Tooling | REPL with `:load`, `:reload`, `:browse`, `:type`, `:kind`, `:core`, `:source`, `:module`, `:set`, `:unset`, `:quit`; file runner; tests. |
+
+## Known boundaries
+
+| Area | State |
+| --- | --- |
+| Modules and imports | Out of scope. A file is one module with one global scope. |
+| GADT typing | GADT syntax is parsed and checked as an ordinary algebraic data declaration. Existential result types are not implemented. |
+| Polymorphic recursion | Not supported. |
+| Defaulting and overloaded literals | Not supported. Numeric primitives are monomorphic `Int`. |
+| Class defaults | Rejected by the renamer. |
+| Method-specific class constraints | Rejected by the kind checker. |
+| `deriving` | Rejected by the renamer after parsing. |
+| Record construction and update | Not parsed. Record selectors work; constructors remain positional. |
+| Negative literal patterns | Not parsed. |
+| Layout inside parentheses and brackets | Suspended. Use explicit braces and semicolons. |
+| Overlapping instances | Not diagnosed. The first matching instance wins during elaboration. |
+| Core type checking | Absent. Source inference and tests cover elaboration. |
+| Evaluation spans | Absent. Core carries no spans; runtime errors identify the source file only. |
+| STG, Imp, LLVM, native code | Out of scope. The book's LLVM chapter is a tutorial for the later Fun language. |
+| Compiler warnings | The build succeeds with `-Wall` warnings in parser, renamer, and evaluator helpers. Cleanup remains. |
+
+The ProtoHaskell chapters in the book stop before native code generation. The LLVM chapter does not define a ProtoHaskell backend. This implementation follows that boundary.
+
+## Repository map
+
+| Path | Contents |
+| --- | --- |
+| `src/WYAH/Span.hs`, `Diagnostic.hs` | Source positions, spans, normalized diagnostics. |
+| `src/WYAH/Syntax.hs`, `Lexer.hs`, `Parser.hs` | Surface AST, tokenizer, layout, fixity, parser. |
+| `src/WYAH/Renamed.hs`, `Renamer.hs`, `Desugar.hs` | Resolved names, scopes, selectors, `do` and comprehension lowering. |
+| `src/WYAH/Type.hs`, `Prelude.hs`, `Kind.hs` | Canonical types, schemes, built-in schemes, kind inference. |
+| `src/WYAH/Typed.hs`, `Infer.hs` | Evidence-carrying typed tree and Hindley-Milner inference. |
+| `src/WYAH/Core.hs`, `Elaborate.hs`, `Eval.hs` | Core IR, dictionary elaboration, pattern compilation, interpreter. |
+| `src/WYAH/Repl.hs`, `app/Main.hs` | Pipeline driver, REPL, file runner, CLI. |
+| `test/` | Accumulating runner, inline structural tests, TSV fixtures. |
+| `examples/` | Runnable ProtoHaskell programs. |
+| `docs/figures/` | Excalidraw scenes, PNG renders, and the scene generator. |
+| `devenv.nix`, `devenv.yaml`, `cabal.project` | Development shell and Cabal project settings. |
+
+## Build and development
+
+Cabal is the verified build path:
 
 ```bash
 cabal build all
 cabal test
 cabal run wyah-compiler
+cabal sdist
 ```
 
-### Stack
+`stack.yaml` pins GHC 9.6.7 for the book's baseline toolchain. Stack was not installed on the host used for the current verification, so the Stack path is untested here. The Cabal build supports GHC 9.6.7 and 9.10.3.
 
-```bash
-stack build
-stack test
-stack exec wyah-compiler
-```
-
-`stack.yaml` pins `ghc-9.6.7`.  The Cabal path is the one used for this
-verified baseline.
-
-### devenv
-
-The repository includes an optional minimal devenv shell:
+The optional devenv shell supplies GHC, Cabal, and Git:
 
 ```bash
 devenv shell
@@ -199,110 +212,34 @@ cabal build all
 cabal test
 ```
 
-`devenv.yaml` pins nixpkgs; `devenv.nix` supplies GHC, Cabal, and Git.  The
-shell intentionally avoids a large `ghcWithPackages` closure; add Haskell
-libraries to `cabal`'s `build-depends` instead.
+The devenv configuration is present but was not shell-validated on this host because the Nix store ran out of disk during realization. Cabal was verified with the Nix-provided GHC 9.10.3 and Cabal 3.16.1.0.
 
-## Architecture
-
-```text
-app/Main.hs              CLI: REPL or file runner
-src/WYAH/
-  Span.hs                source positions and spans
-  Diagnostic.hs          normalized phase/source/span/message contract
-  Syntax.hs              surface AST
-  Lexer.hs               tokens, comments, layout (virtual braces/semicolons)
-  Parser.hs              recursive-descent parser + fixity resolution
-  Renamed.hs             renamed AST
-  Renamer.hs             unique binders, recursive scopes, record selectors
-  Type.hs                canonical types, kinds, schemes, predicates
-  Prelude.hs             built-in names and schemes
-  Kind.hs                synonym expansion, kind inference, data/class envs
-  Typed.hs               inferred expression tree with evidence ids
-  Infer.hs               Hindley–Milner + qualified schemes
-  Core.hs                small Core language with dictionaries
-  Desugar.hs             do notation and list comprehensions
-  Elaborate.hs           dictionary elaboration + pattern-match compilation
-  Eval.hs                call-by-need interpreter and IO primitives
-  Repl.hs                compile pipeline, REPL, file runner
-test/
-  Main.hs                accumulating test runner
-  WYAH/TestCases.hs      inline cases + fixture loader
-  fixtures/              parser/rename/kind/infer/eval/program/classes TSVs
-examples/                runnable ProtoHaskell programs
-docs/
-  audit/                 audit findings and remediation
-  language/              language reference
-  plans/                 roadmap, architecture, matrix, test spec
-  process/               declaration semantics, harness, diagnostics policy
-  WYAH.pdf               local reference copy
-```
-
-### Pass invariants
-
-| Stage | Output | Invariant |
-| --- | --- | --- |
-| Lex/parse | surface AST | source spans on every node; no resolution |
-| Rename | renamed AST | every binder unique; equations grouped; scopes explicit |
-| Desugar | renamed AST | no `do`/comprehension sugar remains |
-| Kind | canonical env | synonyms expanded; data/class kinds known; signatures canonical |
-| Infer | typed AST | most-general types; constraints and evidence recorded |
-| Elaborate | Core | dictionary arguments explicit; patterns compiled to cases |
-| Evaluate | value / IO | call-by-need; runtime failures are structured diagnostics |
-
-## Diagnostics
-
-All phases render a normalized diagnostic:
-
-```text
-phase=<phase>; source=<source>; span=<span>; message=<message>
-```
-
-Phases are `parse`, `rename`, `kind`, `infer`, `desugar`, `eval`, and
-`pipeline`.  Source spans are present for parse, rename, kind, and inference
-errors.  Evaluation errors carry the source file and a structured message;
-they do not yet carry a source span because Core does not retain spans.
-
-## Scope and deliberate limitations
-
-The following are **not** implemented, and are documented as such rather than
-silently accepted:
-
-- modules and imports (the book also defers module namespaces);
-- the full GADT type system (GADT-style declaration syntax is parsed and
-  checked as ordinary algebraic data declarations);
-- polymorphic recursion, defaulting rules, and overloaded literals;
-- class default methods and method-specific class constraints;
-- `deriving` instance generation (the parser reports it as unsupported);
-- record construction/update syntax (record declarations and selector
-  functions are supported; constructors remain positional);
-- negative literal patterns and layout inside parentheses;
-- newtypes, type families, GADTs, and other GHC extensions;
-- a Core type checker, STG/Imp transformations, LLVM, native code generation,
-  and optimization.  The book's Code Generation chapter is a tutorial stub for
-  the later Fun language, not a ProtoHaskell backend.
-
-These boundaries match the book's ProtoHaskell scope and the project's
-low-dependency, interpreter-first constraints.
+The test suite depends on `directory` and `filepath`; the library and executable depend on `base` only. `.github/workflows/ci.yml` runs the Cabal build and test on GHC 9.6.
 
 ## Documentation
 
-- `docs/language/protohaskell.md` — language reference and feature matrix
-- `docs/audit/2026-11-01-audit.md` — audit findings and remediation
-- `docs/plans/` — roadmap, architecture, milestones, regression matrix,
-  test specification, and diagnostics policy
-- `docs/process/` — declaration semantics, annotations, harness contract, and
-  historical planning artifacts
-- `docs/WYAH.pdf` — local copy of the reference text
+- [`docs/language/protohaskell.md`](docs/language/protohaskell.md): language reference, syntax, and boundaries.
+- [`docs/audit/2026-11-01-audit.md`](docs/audit/2026-11-01-audit.md): audit findings and remediation.
+- [`docs/plans/architecture-wyah-milestone-1.md`](docs/plans/architecture-wyah-milestone-1.md): pass boundaries and invariants.
+- [`docs/plans/regression-matrix-wyah.md`](docs/plans/regression-matrix-wyah.md): feature and test matrix.
+- [`docs/process/regression-harness.md`](docs/process/regression-harness.md): fixture schema and runner contract.
+- [`docs/figures/generate.py`](docs/figures/generate.py): reproducible scene generator for the README figures.
+- [`docs/WYAH.pdf`](docs/WYAH.pdf): local copy of the reference text.
+
+The Excalidraw scenes and PNGs sit together under `docs/figures/`. Regenerate a figure with:
+
+```bash
+python3 -B docs/figures/generate.py
+EXCALIDRAW_BROWSER_PATH=/path/to/chrome \
+  excalidraw render docs/figures/architecture.excalidraw \
+  --out docs/figures/architecture.png --scale 2 --max-width 3200
+```
 
 ## References
 
-- Stephen Diehl, **_Write You a Haskell_** — local copy at `docs/WYAH.pdf`;
-  online mirror: <https://smunix.github.io/dev.stephendiehl.com/fun/WYAH.pdf>
-- Robin Milner, “A Theory of Type Polymorphism in Programming” (1978)
-- Luis Damas and Robin Milner, “Principal type-schemes for functional
-  programs” (1982)
-- Benjamin C. Pierce, **_Types and Programming Languages_**
-- Simon Peyton Jones and David Lester, **_Implementing Functional Languages:
-  A Tutorial_**
+- Stephen Diehl, *Write You a Haskell*, local copy at `docs/WYAH.pdf`.
+- Robin Milner, "A Theory of Type Polymorphism in Programming", 1978.
+- Luis Damas and Robin Milner, "Principal type-schemes for functional programs", 1982.
+- Benjamin C. Pierce, *Types and Programming Languages*.
+- Simon Peyton Jones and David Lester, *Implementing Functional Languages: A Tutorial*.
 - GHC Commentary: <https://gitlab.haskell.org/ghc/ghc/-/wikis/commentary/compiler>

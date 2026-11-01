@@ -22,6 +22,9 @@ extra-source-files:
   docs/process/*.md
   docs/language/*.md
   docs/audit/*.md
+  docs/figures/*.excalidraw
+  docs/figures/*.png
+  docs/figures/generate.py
   test/fixtures/*.tsv
   examples/*.fun
   devenv.nix
