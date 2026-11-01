@@ -14,7 +14,9 @@ module WYAH.Kind
   , ClassDef(..)
   , InstanceDef(..)
   , CheckedModule(..)
+  , SynonymMap
   , checkModule
+  , expandSurfaceSynonyms
   , builtinDataDefs
   , builtinTypeInfos
   , constructorScheme
@@ -96,6 +98,7 @@ data CheckedModule = CheckedModule
   , checkedConstructorSchemes :: [(ResolvedName, Scheme)]
   , checkedSignatures :: [(ResolvedName, Scheme)]
   , checkedTypeInfos :: [(Name, TypeInfo)]
+  , checkedSynonyms :: SynonymMap
   }
   deriving (Eq, Show)
 
@@ -546,6 +549,19 @@ convertScheme outerVariables signature = do
 
 -- Module checking -----------------------------------------------------------
 
+expandSurfaceSynonyms :: SynonymMap -> S.Type -> Either KindError S.Type
+expandSurfaceSynonyms synonyms type_ = do
+  let initial =
+        KindState
+          { ksSource = "<annotation>"
+          , ksNext = 0
+          , ksSubstitution = []
+          , ksTypeInfos = builtinTypeInfos
+          , ksClasses = []
+          }
+  (expanded, _) <- runKindM (expandSynonyms synonyms type_) initial
+  pure expanded
+
 kindOfTypeText :: FilePath -> CheckedModule -> S.Type -> Either KindError Kind
 kindOfTypeText file checked surfaceType = do
   let initial =
@@ -652,6 +668,7 @@ checkModuleM rModule = do
       , checkedConstructorSchemes = builtinConstructorSchemes <> userConstructorSchemes
       , checkedSignatures = signatureSchemes'
       , checkedTypeInfos = typeInfos
+      , checkedSynonyms = synonyms
       }
 
 classInfos :: RModule -> [(Span, ClassInfo)]

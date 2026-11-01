@@ -347,7 +347,7 @@ layoutGo stack0 previousLine0 bracketDepth0 acc0 tokens0 = case tokens0 of
         isWhere = kind == TkKeyword "where"
         isIn = kind == TkKeyword "in"
         (stackPre, accPre)
-          | isWhere = closeDoOrOf stack0 acc0
+          | isWhere = closeDoOrOf currentColumn stack0 acc0
           | otherwise = (stack0, acc0)
         (stack1, acc1)
           | onNewLine && bracketDepth0 == 0 && not isWhere && not isIn =
@@ -432,12 +432,16 @@ closeDeeper column stack acc = case stack of
 -- | A @where@ clause belongs to the current declaration, not to an
 -- expression block.  Close any @do@ or @of@ contexts opened on the right
 -- hand side before the @where@ is emitted.
-closeDoOrOf :: [LayoutContext] -> [Token] -> ([LayoutContext], [Token])
-closeDoOrOf stack acc = case stack of
+closeDoOrOf :: Int -> [LayoutContext] -> [Token] -> ([LayoutContext], [Token])
+closeDoOrOf column stack acc = case stack of
   (context : rest)
     | not (lcExplicit context)
-    , lcKind context == LayoutDo || lcKind context == LayoutOf ->
-        closeDoOrOf rest (acc <> [virtualRBrace])
+    , lcKind context == LayoutDo ->
+        closeDoOrOf column rest (acc <> [virtualRBrace])
+    | not (lcExplicit context)
+    , lcKind context == LayoutOf
+    , column <= lcIndent context ->
+        closeDoOrOf column rest (acc <> [virtualRBrace])
   _ -> (stack, acc)
 
 -- | Close implicit contexts until the enclosing implicit @let@ context is

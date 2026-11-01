@@ -47,7 +47,7 @@ The repository now implements a complete interpreted ProtoHaskell pipeline:
   `:module`, and `:quit`;
 - a file runner and a fixture-driven regression suite.
 
-The current verified baseline is **143 passing regression cases** (inline
+The current verified baseline is **146 passing regression cases** (inline
 structural tests plus parser, renaming, kind, inference, evaluation, program,
 and class fixtures).
 

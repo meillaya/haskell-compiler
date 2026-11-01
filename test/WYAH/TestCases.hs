@@ -86,6 +86,9 @@ inlineGroups =
       , testCase "comments are ignored by the lexer" (assertModuleValue commentModule "1")
       , testCase "show renders values" (assertModuleValue showModule "\"42\"")
       , testCase "composition and dollar sections evaluate" (assertModuleValue composeModule "7")
+      , testCase "pattern annotations are checked" (assertModuleValue patternAnnotationModule "2")
+      , testCase "case guards can carry where clauses" (assertModuleValue caseWhereModule "5")
+      , testCase "synonyms are expanded in expression annotations" (assertModuleValue synonymAnnotationModule "\"abc\"")
       , testCase "non-exhaustive pattern matching is a runtime error" (assertModuleEvalError "pattern match failure" nonExhaustiveModule)
       ]
   ]
@@ -210,6 +213,28 @@ groupedCases :: IO [CaseGroup]
 groupedCases = do
   fixtureGroups <- loadFixtureGroups
   pure (inlineGroups <> fixtureGroups)
+
+patternAnnotationModule :: String
+patternAnnotationModule = unlines
+  [ "f (x :: Int) = x + 1"
+  , "main = f 1"
+  ]
+
+caseWhereModule :: String
+caseWhereModule = unlines
+  [ "g x = case x of"
+  , "  Just y | y > 0, y < 10 -> z"
+  , "         | otherwise -> 0"
+  , "            where z = y"
+  , "  Nothing -> -1"
+  , "main = g (Just 5)"
+  ]
+
+synonymAnnotationModule :: String
+synonymAnnotationModule = unlines
+  [ "type String2 = [Char]"
+  , "main = (\"abc\" :: String2)"
+  ]
 
 fixModule :: String
 fixModule = unlines

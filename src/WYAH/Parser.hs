@@ -1532,7 +1532,12 @@ parseAPat = do
             TkRParen -> do
               endToken <- advance
               pure (setPatternSpan (mkSpan start (spanEnd (tokenSpan endToken))) first)
-            _ -> failParse ("expected ',' or ')' in a parenthesized pattern, found " <> describeTokenKind afterFirst)
+            TkDoubleColon -> do
+              _ <- advance
+              type_ <- parseType
+              endToken <- expectKind (== TkRParen) "')' after a pattern annotation"
+              pure (PAnn (mkSpan start (spanEnd (tokenSpan endToken))) first type_)
+            _ -> failParse ("expected ',', '::' or ')' in a parenthesized pattern, found " <> describeTokenKind afterFirst)
     TkLBracket -> do
       start <- currentStart
       _ <- advance

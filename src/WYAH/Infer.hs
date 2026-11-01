@@ -90,6 +90,7 @@ data InferState = InferState
   , isGivens :: [Pred]
   , isTypeInfos :: [(Name, TypeInfo)]
   , isClassNames :: [Name]
+  , isSynonyms :: SynonymMap
   }
 
 newtype Infer a = Infer {runInfer :: InferState -> Either TypeError (a, InferState)}
@@ -240,6 +241,7 @@ inferModule file checked = do
           , isGivens = []
           , isTypeInfos = checkedTypeInfos checked
           , isClassNames = map classDefName (checkedClassDefs checked)
+          , isSynonyms = checkedSynonyms checked
           }
   (result, _) <- runInfer (inferModuleM checked) initial
   pure result
@@ -260,6 +262,7 @@ inferExpression file checked expression = do
           , isGivens = []
           , isTypeInfos = checkedTypeInfos checked
           , isClassNames = map classDefName (checkedClassDefs checked)
+          , isSynonyms = checkedSynonyms checked
           }
   ((scheme, typed, evidence), _) <- runInfer (inferRepl checked expression) initial
   pure (scheme, typed, evidence)
@@ -564,9 +567,13 @@ splitFunctionType type_ = ([], type_)
 convertAnnotationType :: Span -> Surface.Type -> Infer Type
 convertAnnotationType span_ type_ = do
   state <- getInferState
-  let variableNames = nub (annotationVariables type_)
+  expanded <-
+    case expandSurfaceSynonyms (isSynonyms state) type_ of
+      Left err -> failInfer (kindErrorSpan err) (kindErrorMessage err)
+      Right result -> pure result
+  let variableNames = nub (annotationVariables expanded)
   variables <- mapM (\name -> do variableType <- freshType KStar; pure (name, variableType)) variableNames
-  convert variables type_
+  convert variables expanded
   where
     convert variables type__ = case type__ of
       Surface.TyCon typeSpan name
