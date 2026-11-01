@@ -1,9 +1,21 @@
 # fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
 parse-int|expr|parse|parse-ok|active-now|42|span=1:1-1:3|Parsing|integer literal parses
-parse-bool|expr|parse|parse-ok|active-now|true|literal=LitBool True|Parsing|boolean literal parses
-parse-lambda|expr|parse|parse-ok|active-now|\\x -> x|span=1:1-1:8|Parsing|lambda parses with body span
-parse-let|expr|parse|parse-ok|active-now|let id = \\x -> x in id 42|span=1:1-1:26|Parsing|let expression parses
+parse-bool|expr|parse|parse-ok|active-now|True|span=1:1-1:5|Parsing|boolean constructor parses
+parse-add|expr|parse|parse-ok|active-now|1 + 2|span=1:1-1:6|Parsing|addition spans the whole expression
+parse-precedence|expr|parse|parse-ok|active-now|1 + 2 * 3|span=1:1-1:10|Parsing|multiplication binds tighter
+parse-lambda|expr|parse|parse-ok|active-now|\x -> x|span=1:1-1:8|Parsing|lambda parses with body span
+parse-let|expr|parse|parse-ok|active-now|let x = 1 in x + 2|span=1:1-1:19|Parsing|let expression parses
 parse-if|expr|parse|parse-ok|active-now|if true then 1 else 0|span=1:1-1:22|Parsing|if expression parses
-parse-error-open-paren|expr|parse|parse-error|active-now|(|phase=parse; source=sample.wyah; span=1:1-1:2|Parsing|parse error reports location
-parse-add-op|expr|parse|parse-ok|active-now|1 + 2|span=1:3-1:6|Parsing|addition operator parses
-parse-prefix-minus|expr|parse|parse-ok|active-now|- 1|span=1:1-1:4|Parsing|prefix minus parses
+parse-negative|expr|parse|parse-ok|active-now|- 1|span=1:1-1:4|Parsing|prefix minus parses
+parse-error-open-paren|expr|parse|parse-error|active-now|(|span=1:2|Parsing|unclosed parenthesis reports a span
+parse-error-eof|expr|parse|parse-error|active-now|1 +|span=1:4|Parsing|end of input reports a span
+parse-error-garbage|expr|parse|parse-error|active-now|@|expected an expression|Parsing|unknown character is rejected
+layout-where|program|parse|parse-ok|active-now|f x = y\n  where\n    y = x + 1\nmain = f 1\n|ok|Parsing|layout inserts where braces
+layout-do|program|parse|parse-ok|active-now|main = do\n  putStrLn "hello"\n|ok|Parsing|layout inserts do braces
+layout-case|program|parse|parse-ok|active-now|f x = case x of\n  Just y -> y\n  Nothing -> 0\nmain = f Nothing\n|ok|Parsing|layout inserts case braces
+layout-class|program|parse|parse-ok|active-now|class Eq2 a where\n  eq2 :: a -> a -> Bool\n|ok|Parsing|layout inserts class braces
+parse-record-data|program|parse|parse-ok|active-now|data Person = Person { name :: [Char], age :: Int }\nmain = 1\n|ok|Parsing|record syntax parses
+parse-gadt-data|program|parse|parse-ok|active-now|data G where\n  MkG :: Int -> G\nmain = 1\n|ok|Parsing|GADT-style data parses
+parse-tuple-section|expr|parse|parse-ok|active-now|(1, True)|span=1:1-1:10|Parsing|tuple syntax parses
+parse-op-section|expr|parse|parse-ok|active-now|(1 +)|span=1:1-1:6|Parsing|left section parses
+parse-list-range|expr|parse|parse-ok|active-now|[1..5]|span=1:1-1:7|Parsing|range syntax parses

@@ -1,75 +1,71 @@
 # Regression Harness
 
-This project uses a fixture-driven regression harness to keep semantic claims attached to executable evidence.
+The project uses an accumulating fixture-driven harness to keep semantic
+claims attached to executable evidence.
 
-## Purpose
+## Runner
 
-The harness exists to prevent semantic drift while the typed interpreter grows. It is deliberately lightweight, text-based, and compatible with both expression-shaped and program-shaped inputs.
+`test/Main.hs` runs every group and every case, prints `[ok]`/`[fail]` with
+details, prints a summary, and exits nonzero only after all groups have run.
+It never stops at the first failure.
 
-## Canonical fixture schema
+## Fixture schema
 
-Each fixture record should support the following fields.
+Each non-comment row has nine pipe-separated fields:
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `fixtureId` | yes | Stable unique identifier for the case |
-| `sourceKind` | yes | `expr` or `program` |
-| `phase` | yes | Primary owning phase: `parse`, `rename`, `infer`, `eval`, or `pipeline` |
-| `input` | yes | Source text under test |
-| `expectationKind` | yes | Expected outcome kind |
-| `expected` | conditional | Expected value, type, or normalized diagnostic payload |
-| `status` | yes | `active-now`, `staged-for-later`, or `blocked-by-non-goal` |
-| `chapterRef` | no | WYAH chapter or section reference |
-| `notes` | no | Short provenance or rationale |
+```text
+fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
+```
+
+| Field | Meaning |
+| --- | --- |
+| `fixtureId` | stable unique identifier |
+| `sourceKind` | `expr` or `program` |
+| `phase` | `parse`, `rename`, `kind`, `infer`, `eval`, `program`, or `pipeline` |
+| `expectationKind` | expected outcome kind |
+| `status` | `active-now` runs; `staged-for-later`/`blocked-by-non-goal` skip |
+| `input` | source text; `\n`, `\t`, `\\`, and `\|` escapes are decoded |
+| `expected` | type, value, span, or stable diagnostic fragment |
+| `chapterRef` | book chapter/area |
+| `notes` | provenance/rationale |
+
+Malformed rows are errors; they are never silently dropped.
 
 ## Expectation kinds
 
-The current harness recognizes these canonical meanings:
-
-- `parse-ok`
-- `parse-error`
-- `rename-error`
+- `parse-ok` / `parse-error` / `parse-span`
+- `rename-error` / `kind-error` / `infer-error` / `eval-error`
 - `infer-type`
-- `infer-error`
 - `eval-value`
-- `pipeline-error`
+- `program-type` / `program-value`
 
-## Phase ownership
+Assertions are structural where practical: phases, spans, type strings, and
+rendered values.  Diagnostic assertions use stable fragments rather than full
+prose.
 
-### `parse`
-Owns syntax acceptance/rejection and normalized parse diagnostics.
-
-### `rename`
-Owns lexical scope, declaration visibility, binding identity, duplicate-name policy, and unbound-name failures.
-
-### `infer`
-Owns type inference success, unification failures, occurs checks, and branch/type mismatches.
-
-### `eval`
-Owns runtime value expectations for well-typed inputs.
-
-### `pipeline`
-Owns full-path failures and success cases that intentionally traverse multiple passes.
-
-## Current fixture layout
-
-The external fixture corpus is currently split by ownership:
+## Fixture files
 
 - `test/fixtures/parser.tsv`
 - `test/fixtures/rename.tsv`
 - `test/fixtures/infer.tsv`
 - `test/fixtures/eval.tsv`
 - `test/fixtures/program.tsv`
+- `test/fixtures/classes.tsv`
 
-## Current implementation status
+Fixtures are declared as Cabal data files and are located by searching the
+source/working-directory roots, so the suite does not depend on a single CWD.
 
-The active harness today consists of:
+## Inline cases
 
-- grouped Haskell-side test execution in `test/WYAH/TestCases.hs`
-- phase-split external fixtures under `test/fixtures/`
-- grouped reporting by parsing, renaming, inference, evaluation, and pipeline failures
-- both `expr` and `program` source kinds
+`test/WYAH/TestCases.hs` also contains structural cases for spans, layout,
+left-nested applications, kinds, shadowing, recursion, annotations, and
+runtime behavior.  These cover properties that do not fit a one-line TSV row.
 
-## Verification role
+## Verification commands
 
-This harness is now the canonical verification surface for the current Milestone 1 baseline. It should be updated whenever semantics, diagnostics, or parser surface behavior change.
+```bash
+cabal build all
+cabal test
+stack test          # when Stack/GHC 9.6.7 is available
+devenv test         # when a devenv shell is available
+```

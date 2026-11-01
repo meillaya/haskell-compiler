@@ -1,2 +1,6 @@
 # fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
-rename-unbound|expr|rename|rename-error|active-now|\\x -> y|phase=rename; source=<unknown>; span=1:7-1:8; message=not in scope|Renamer|unbound variable rejected
+rename-unbound|expr|rename|rename-error|active-now|\x -> y|not in scope: y|Renamer|unbound variable rejected
+rename-dup-data|program|rename|rename-error|active-now|data Dup = A\ndata Dup = B\nmain = 1\n|duplicate type or class name: Dup|Renamer|duplicate datatype rejected
+rename-dup-pattern|program|rename|rename-error|active-now|f x x = x\nmain = f 1 2\n|variable bound more than once|Renamer|non-linear pattern rejected
+rename-forward|program|eval|program-value|active-now|main = later\nlater = 1\n|1|Renamer|top-level declarations are recursive
+rename-shadow|program|eval|program-value|active-now|f x = (\x -> x) 2\nmain = f 1\n|2|Renamer|shadowing keeps the inner binder

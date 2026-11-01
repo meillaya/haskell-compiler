@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://devenv.sh/devenv.schema.json
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+
+# `devenv update` refreshes the lock file.  The Haskell toolchain is provided
+# by nixpkgs and is intentionally not a full ghcWithPackages closure.

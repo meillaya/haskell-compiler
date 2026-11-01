@@ -1,22 +1,63 @@
 # Diagnostics Policy: WYAH
 
-## Minimal Span Model
-- Each parseable term should carry at least line/column or equivalent source span metadata where practical.
-- Errors should identify the compiler stage that raised them.
+## Normalized contract
 
-## Parser Error Policy
-- Invalid syntax must report file/input context and location.
+Every compiler phase renders:
 
-## Renamer Error Policy
-- Unbound names and duplicate bindings should reference relevant source locations.
+```text
+phase=<phase>; source=<source>; span=<span>; message=<message>
+```
 
-## Type Inference Error Policy
-- Type mismatch and occurs-check failures should point to the originating expression span where practical.
+Phases: `parse`, `rename`, `kind`, `infer`, `desugar`, `eval`, `pipeline`.
 
-## REPL Error Policy
-- Errors must be concise, stage-labeled, and learner-readable.
+`source` is `<unknown>` only when a phase genuinely has no file context.
+`span` is `<unknown>` for evaluation errors, because Core does not retain
+spans; all other phases carry a source span when one is available.
 
-## Non-goals for Diagnostics Polish
-- No requirement yet for rich compiler-grade pretty diagnostics.
-- No requirement yet for full GHC-style multi-span notes.
-- The goal is reliable, useful debugging information early, not polished presentation.
+## Per-phase expectations
+
+| Phase | Source | Span | Notes |
+| --- | --- | --- | --- |
+| parse | file | yes | token/EOF spans; end-of-input is zero-width |
+| rename | file | yes | binder/use locations |
+| kind | file | yes | declaration/annotation locations |
+| infer | file | yes | expression/pattern locations |
+| desugar | file | usually | synthesized nodes may be spanless |
+| eval | file | no | structured message; source file attached |
+| pipeline | file | depends | driver-normalized wrapper |
+
+## Parser errors
+
+Malformed syntax reports file, span, and the token found.  End-of-input errors
+report the zero-width position after the last token.
+
+## Renamer errors
+
+Unbound variables, duplicate declarations, duplicate binders, duplicate class
+methods, and unsupported declaration forms report the relevant span.
+
+## Kind errors
+
+Unknown type constructors, synonym arity/recursion errors, kind mismatches,
+and unsupported class forms report the declaration/type span.
+
+## Type errors
+
+Unification failures, occurs-check failures, missing instances, and ambiguous
+constraints report the originating expression or signature span.
+
+## Evaluation errors
+
+Runtime failures report `phase=eval`, the source file, and a stable message
+(for example `pattern match failure`, `division by zero`, `head of empty
+list`).  They do not claim a source span.
+
+## REPL
+
+Errors use the same normalized rendering; declarations and expressions are
+compiled through the same pipeline as files, so diagnostics remain consistent.
+
+## Non-goals
+
+No GHC-style multi-span notes, caret art, suggestions, or machine-readable JSON
+yet.  The contract is intentionally structural and testable.

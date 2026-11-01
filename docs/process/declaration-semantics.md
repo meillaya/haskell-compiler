@@ -1,106 +1,105 @@
 # Declaration Semantics
 
-This document defines the current program-level contract for top-level declarations.
+## Program shape
 
-## Program representation
-
-A program is represented as:
-
-- an ordered list of top-level declarations, and
-- a required final expression.
-
-In Haskell terms, the current surface contract is roughly:
+A source file is a module: an optional `module Name where` header followed by
+top-level declarations.  There is no required final expression and no
+imports.  A file normally defines `main` for the file runner; the REPL accepts
+declarations and expressions on separate lines.
 
 ```haskell
-data Program = Program [Decl] Expr
+module Main where
+
+id x = x
+
+map f []     = []
+map f (x:xs) = f x : map f xs
 ```
 
-where each declaration binds exactly one name to one expression.
+## Visibility and recursion
 
-## Ordering and visibility invariants
-
-Top-level declarations are currently **sequential**.
-
-That means:
-
-- earlier declarations are visible to later declarations,
-- earlier declarations are visible to the final expression,
-- later declarations are **not** visible to earlier declarations,
-- forward references are rejected,
-- duplicate top-level names are rejected.
-
-## Recursion policy
-
-Top-level declarations are currently **non-recursive**.
-
-The project does **not** yet support:
-
-- self-recursive declarations,
-- mutually recursive declaration groups,
-- module-level dependency analysis.
-
-This is intentional. The current milestone is still a semantics-first typed interpreter, and non-recursive declarations keep the program model bounded and easier to reason about.
-
-## Final expression rule
-
-A program must end in a final expression.
-
-For example, this is valid:
+Top-level declarations are **mutually recursive**.  Every top-level function,
+data constructor, class method, and record selector is visible to every other
+top-level declaration.  Forward references are allowed:
 
 ```haskell
-id = \x -> x;
-id 42
+main = later
+later = 1
 ```
 
-and this is invalid because there is no final expression:
+Shadowing is resolved lexically; the renamer assigns every binder a unique
+`ResolvedName`.  Duplicate top-level bindings are rejected where a duplicate is
+truly a duplicate (datatypes, classes, class methods, record fields, single
+signatures).  Multiple equations for the same function are the ordinary
+Haskell mechanism for pattern matching and are grouped, not rejected.
+
+## Function equations
+
+Each equation is parsed into a pattern list, a right-hand side (plain or
+guarded), and a `where` block.  The renamer groups equations by name; the
+inferencer treats the group as one recursive binding; the elaborator compiles
+the equations to nested Core cases with a failure continuation that tries the
+next equation.
 
 ```haskell
-id = \x -> x;
+sign x
+  | x > 0     = 1
+  | x < 0     = -1
+  | otherwise = 0
 ```
+
+Guards can be expressions, pattern guards, or comma-separated combinations.
+Pattern variables from a guard scope over its right-hand side and over
+subsequent guards in the same clause.
+
+## Let and where
+
+`let` and `where` bindings are recursive.  A `where` block scopes over all
+guards and the right-hand side of its equation/alternative; it may refer to the
+equation's pattern variables.  Lowering turns both into `CLetRec`.
+
+```haskell
+sumTo n = go 0 1
+  where
+    go acc i
+      | i > n     = acc
+      | otherwise = go (acc + i) (i + 1)
+```
+
+Local declarations may include signatures.  Local signatures are checked
+against the inferred type; they are not yet generalized into polymorphic local
+schemes beyond the inferred/local generalization rules.
+
+## Data declarations
+
+Regular, GADT-style, and record declarations are all represented as a data
+name, parameter list, and constructor list:
+
+```haskell
+data Maybe2 a = Nothing2 | Just2 a
+data Person = Person { name :: [Char], age :: Int }
+data G where
+  MkG :: Int -> G
+```
+
+Record fields generate selector functions.  A field shared by several
+constructors produces a selector with one equation per constructor.  Record
+construction/update syntax is not implemented; constructors are positional.
+
+## Classes and instances
+
+Class and instance declarations are first-class top-level declarations.
+Class methods are top-level values with qualified schemes.  Instances are
+matched by class name and head type; instance contexts become dictionary
+parameters during elaboration.
 
 ## Lowering boundary
 
-The parser and renamer operate on first-class `Program` / `Decl` structures.
+Parsing and renaming operate on the `Program`-shaped module AST.  Desugaring,
+kind checking, inference, and elaboration happen only after the declaration
+contract has been enforced.  The important invariants are:
 
-Only **after** program-shape validation and name resolution does the implementation lower a program into expression-level structure for the existing typed interpreter pipeline.
-
-At the moment, lowering is equivalent to nested `let` construction over the ordered declaration list.
-
-Conceptually:
-
-```haskell
-x = e1;
-y = e2;
-body
-```
-
-lowers to something like:
-
-```haskell
-let x = e1 in
-let y = e2 in
-body
-```
-
-The important invariant is that lowering happens **after** the program contract has been enforced, not as a parser shortcut.
-
-## Minimal diagnostic spine for program errors
-
-Current program-level errors should preserve at least:
-
-- phase attribution,
-- source span presence when source-derived,
-- stable error kind.
-
-Important current program/declaration error classes:
-
-- duplicate top-level declaration,
-- forward-reference / visibility error,
-- malformed program shape,
-- missing final expression,
-- malformed declaration separator usage.
-
-
-## Annotation extension
-
-Top-level declarations may now carry optional type annotations, and annotated declarations are checked against their inferred types before they are admitted into the top-level environment.
+- no unresolved names reach inference;
+- every binder is unique;
+- function equations are grouped before inference;
+- dictionaries are explicit before evaluation.

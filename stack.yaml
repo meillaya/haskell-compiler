@@ -1,3 +1,4 @@
+# Stack remains supported for the book's GHC 9.6.7 baseline.
 resolver: ghc-9.6.7
 packages:
 - .

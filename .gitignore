@@ -1,2 +1,13 @@
 .stack-work/
 .omx/
+dist-newstyle/
+.devenv/
+result
+result-*
+*.hi
+*.o
+.direnv/
+*.dyn_hi
+*.dyn_o
+.ghc.environment.*
+cabal.project.local

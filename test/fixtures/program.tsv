@@ -1,15 +1,12 @@
 # fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
-program-parse-one-decl|program|parse|parse-ok|active-now|id = \x -> x; id 42|decls=1|Frontend / Renamer|single top-level declaration parses
-program-annotated-parse|program|parse|parse-ok|active-now|id : Int -> Int; id = \x -> x; id 42|decls=1|Frontend / Renamer|annotated top-level declaration parses
-program-infer-id|program|infer|infer-type|active-now|id = \x -> x; id|t0 -> t0|Frontend / Renamer|declaration program infers identity type
-program-annotated-infer|program|infer|infer-type|active-now|id : Int -> Int; id = \x -> x; id|Int -> Int|Frontend / Renamer|annotated declaration is checked and used monomorphically
-program-eval-id|program|eval|eval-value|active-now|id = \x -> x; id 42|type: Int\nvalue: VInt 42|Evaluation|declaration program evaluates
-program-eval-multi-decl|program|eval|eval-value|active-now|id = \x -> x; keep = id 42; id keep|type: Int\nvalue: VInt 42|Evaluation|multiple top-level declarations evaluate sequentially
-program-annotated-multi-decl|program|eval|eval-value|active-now|id : Int -> Int; id = \x -> x; keep = id 42; id keep|type: Int\nvalue: VInt 42|Evaluation|annotated multi-declaration program evaluates
-program-missing-semi|program|parse|parse-error|active-now|id = \x -> x id 42|phase=parse; source=sample.wyah; span=1:1-1:3; message=expected ';'|Frontend / Renamer|declaration parser requires semicolon separator
-program-unbound|program|rename|rename-error|active-now|id = \x -> x; keep|phase=rename; source=<unknown>; span=1:15-1:19; message=not in scope|Frontend / Renamer|unbound top-level use is rejected
-program-duplicate|program|rename|rename-error|active-now|id = \x -> x; id = \y -> y; id 42|phase=rename; source=<unknown>; span=1:15-1:28; message=duplicate top-level declaration for id|Frontend / Renamer|duplicate top-level names are rejected
-program-forward-reference|program|rename|rename-error|active-now|x = y; y = 1; x|phase=rename; source=<unknown>; span=1:5-1:6; message=not in scope|Frontend / Renamer|top-level declarations are sequential, not recursive
-program-missing-final|program|parse|parse-error|active-now|id = \x -> x;|phase=parse; source=sample.wyah; span=1:13-1:14; message=expected final expression after top-level declarations|Frontend / Renamer|final expression is mandatory
-program-annotation-mismatch|program|infer|infer-error|active-now|id : Int -> Bool; id = \x -> x; id|phase=infer; source=<unknown>; span=1:1-1:32; message=cannot unify|Frontend / Renamer|annotation mismatch is rejected
-program-annotation-missing-decl|program|parse|parse-error|active-now|id : Int -> Int; id 42|phase=parse; source=sample.wyah; span=1:16-1:17; message=type annotation must be followed immediately by a matching declaration|Frontend / Renamer|annotation must bind the next declaration
+program-id|program|infer|program-type|active-now|id x = x\nmain = id 42\n|Int|Frontend|declaration program infers
+program-poly-use|program|infer|program-type|active-now|id x = x\nmain = (id 1, id True)\n|(Int, Bool)|Hindley-Milner|top-level polymorphism
+program-map|program|infer|program-type|active-now|map f [] = []\nmap f (x:xs) = f x : map f xs\nmain = map (\x -> x + 1) [1,2,3]\n|[Int]|Hindley-Milner|map inferred polymorphically
+program-annotated|program|infer|program-type|active-now|id :: forall a. a -> a\nid x = x\nmain = id 42\n|Int|Frontend|explicit forall signature
+program-tuple|program|eval|program-value|active-now|main = (1, (True, 2))\n|(1, (True, 2))|Datatypes|nested tuples
+program-list|program|eval|program-value|active-now|main = [1,2,3]\n|[1, 2, 3]|Datatypes|list literal
+program-gadt|program|eval|program-value|active-now|data G where\n  MkG :: Int -> G\nunG (MkG x) = x\nmain = unG (MkG 7)\n|7|Datatypes|GADT-style declaration
+program-type-synonym|program|eval|program-value|active-now|type Pair a = (a, a)\nf :: Pair Int -> Int\nf (x, y) = x + y\nmain = f (1, 2)\n|3|Frontend|type synonym expands
+program-do-let|program|eval|program-value|active-now|main = do\n  let x = 1\n  let y = 2\n  return (x + y)\n|3|Evaluation|do let statements
+program-where-do|program|eval|program-value|active-now|main = do\n  putStrLn msg\n  where\n    msg = "hello"\n|()|Evaluation|where after do block
+program-mutual|program|eval|program-value|active-now|even2 0 = True\neven2 n = odd2 (n - 1)\nodd2 0 = False\nodd2 n = even2 (n - 1)\nmain = even2 10\n|True|Evaluation|mutual recursion

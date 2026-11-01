@@ -1,7 +1,33 @@
 cabal-version:      2.4
 name:               wyah-compiler
 version:            0.1.0.0
+synopsis:           A ProtoHaskell compiler in the spirit of Write You a Haskell
+description:
+  A pedagogical implementation of Stephen Diehl's Write You a Haskell
+  ProtoHaskell pipeline: lexer/layout, parser, renamer, kind inference,
+  Hindley-Milner inference with type classes, desugaring, Core elaboration,
+  and a lazy interpreter.
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Mei
+maintainer:         nathanagbomed@proton.me
 build-type:         Simple
+tested-with:        GHC == 9.6.7 || == 9.10.3
+data-files:
+  test/fixtures/*.tsv
+
+extra-source-files:
+  README.md
+  docs/plans/*.md
+  docs/process/*.md
+  docs/language/*.md
+  docs/audit/*.md
+  test/fixtures/*.tsv
+  examples/*.fun
+  devenv.nix
+  devenv.yaml
+  cabal.project
+  .envrc
 
 library
   hs-source-dirs:      src
@@ -9,14 +35,21 @@ library
       WYAH.Diagnostic
     , WYAH.Span
     , WYAH.Syntax
+    , WYAH.Lexer
     , WYAH.Parser
-    , WYAH.Name
+    , WYAH.Renamed
+    , WYAH.Renamer
     , WYAH.Type
+    , WYAH.Prelude
+    , WYAH.Kind
+    , WYAH.Typed
     , WYAH.Infer
     , WYAH.Core
+    , WYAH.Desugar
+    , WYAH.Elaborate
     , WYAH.Eval
     , WYAH.Repl
-  build-depends:       base >=4.18 && <4.20
+  build-depends:       base >=4.18 && <4.22
   default-language:    GHC2021
   ghc-options:         -Wall
 
@@ -24,7 +57,7 @@ executable wyah-compiler
   hs-source-dirs:      app
   main-is:             Main.hs
   build-depends:
-      base >=4.18 && <4.20
+      base >=4.18 && <4.22
     , wyah-compiler
   default-language:    GHC2021
   ghc-options:         -Wall
@@ -36,7 +69,9 @@ test-suite wyah-compiler-test
   other-modules:
       WYAH.TestCases
   build-depends:
-      base >=4.18 && <4.20
+      base >=4.18 && <4.22
     , wyah-compiler
+    , directory
+    , filepath
   default-language:    GHC2021
   ghc-options:         -Wall

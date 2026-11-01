@@ -1,37 +1,47 @@
 # Milestones: WYAH Compiler Project
 
-## Milestone 0
-**Focus:** planning + learning artifacts.
-**Dependencies:** deep-interview spec.
-**Exit criteria:** all canonical planning artifacts exist and satisfy their checklists.
+## Milestone 0 — Planning artifacts — complete
 
-## Milestone 1
-**Focus:** a verified typed interpreter / REPL baseline.
-**Dependencies:** Milestone 0 complete.
-**Current verified baseline includes:**
-- spans and normalized diagnostics
-- expressions: ints, bools, vars, lambdas, application, let, if
-- builtins: `succ`, `pred`, `iszero`, `add`
-- surface-only operator layer: infix `+`, prefix `-`
-- minimal semicolon-separated top-level declarations
-- mandatory final expression
-- sequential, non-recursive declaration visibility
-- grouped fixture-driven verification across parse/rename/infer/eval/program flows
+Study guide, roadmap, PRD, test spec, architecture, regression matrix, parser
+decision, diagnostics policy, and milestone tracker exist under `docs/`.
 
-**Current non-goals preserved:** LLVM, optimizer, typeclasses, advanced ADTs, layout-sensitive parsing, modules/imports, recursive declaration groups, full Haskell.
+## Milestone 1 — Verified typed interpreter baseline — complete, superseded
 
-**Checkpoint status:** current baseline is consolidated and fully verified.
+The original bounded interpreter baseline (ints/bools/lambdas/let/if,
+builtins, minimal declarations) was verified, audited, and then replaced by the
+full ProtoHaskell pipeline.  Its defects and remediation are recorded in
+`docs/audit/2026-11-01-audit.md`.
 
-## Milestone 2
-**Focus:** the next post-consolidation semantic/syntax family.
-**Entry rule:** must be chosen by fresh planning from the current verified baseline.
-**Likely candidates:** deeper declaration semantics or a broader grammar family, depending on the latest plan.
+## Milestone 2 — Richer surface language — complete
 
-## Milestone 3
-**Focus:** richer surface language and parser ergonomics after the next family is complete and verified.
+- layout-sensitive parser with explicit and implicit blocks;
+- data declarations (regular, GADT syntax, records);
+- type synonyms;
+- classes, instances, superclasses, instance contexts;
+- guards, pattern guards, `where`, as-patterns;
+- lists, tuples, ranges, comprehensions, sections, custom fixities;
+- comments and string/char escapes.
 
-## Milestone 4
-**Focus:** advanced front-end semantics.
+## Milestone 3 — Advanced frontend semantics — complete
 
-## Milestone 5
-**Focus:** backend preparation, then eventual LLVM / native code generation.
+- kind inference with higher-kinded parameters;
+- canonical types/schemes/predicates;
+- Hindley–Milner with let-polymorphism and occurs checks;
+- qualified schemes, evidence ids, dictionary elaboration;
+- skolemized signature checking;
+- recursive top-level functions and local `letrec`/`where`.
+
+## Milestone 4 — Backend preparation and interpreter — complete for ProtoHaskell
+
+- explicit Core IR;
+- function/case pattern-match compilation;
+- dictionary and superclass elaboration;
+- call-by-need interpreter with lazy lists and IO actions;
+- REPL commands and file runner;
+- fixture-driven regression harness.
+
+## Milestone 5 — LLVM / native code generation — out of book scope
+
+The book's LLVM chapter is a tutorial on LLVM IR and a toy x86-64 JIT; the
+ProtoHaskell pipeline ends at the interpreter, and the native "Fun" pipeline
+is explicitly later work.  No LLVM backend is claimed or implemented.

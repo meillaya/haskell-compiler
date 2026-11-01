@@ -1,74 +1,84 @@
 # PRD: WYAH Compiler Learning Roadmap
 
 ## Goals
-- Implement Stephen Diehl's *Write You a Haskell* compiler path in Haskell as a serious learning exercise.
-- Produce a faithful Milestone 1 typed interpreter / REPL pipeline before backend work.
-- Preserve semantic fidelity to the book while allowing structural simplifications that improve pedagogy and verification.
-- Use Stack and keep dependencies minimal unless clearly justified.
+
+- Implement Stephen Diehl's *Write You a Haskell* ProtoHaskell path in Haskell
+  as a serious learning exercise.
+- Preserve the book's semantic pipeline: parse, rename, kind-check, infer,
+  desugar, elaborate to Core, evaluate.
+- Keep the implementation readable, explicit, and testable with a minimal
+  dependency surface.
+- Document deviations and boundaries rather than silently widening or
+  narrowing scope.
 
 ## Non-goals
-- LLVM / native code generation in Milestone 1
-- Optimizer pipeline in Milestone 1
-- Typeclasses initially
-- Advanced algebraic datatypes / full pattern-match compilation beyond the minimum learning path
-- Layout-sensitive parsing as an initial requirement
-- Exact module-for-module fidelity to the book
-- Full Haskell language coverage
-- Premature extensions unrelated to parser/typechecker/evaluator correctness
 
-## User / Learning Value
-- Learn compiler construction through explicit passes: parsing, binding, renaming, inference, desugaring, evaluation.
-- Learn how Haskell supports large, compositional compiler implementations.
-- Build a foundation for later extensions into richer frontends and LLVM.
+- LLVM/native code generation or the later Fun pipeline.
+- Optimizer, STG, Imp, or Core type checker.
+- Modules/imports, full GADT type system, polymorphic recursion, defaulting,
+  overloaded literals, default class methods, `deriving`, newtypes, type
+  families, or GHC extensions.
+- Exact module-for-module fidelity to the book.
+
+## User / learning value
+
+- See each pass's input/output and invariants.
+- See how HM constraint generation, generalization, and dictionary elaboration
+  fit together.
+- See how layout, fixity, patterns, and desugaring are implemented without a
+  parser generator.
+- Use the REPL and `:core`/`:type` to inspect intermediate forms.
 
 ## Constraints
-- Must use Stack.
-- Avoid external libraries when reasonably possible.
-- Milestone 1 correctness means book-faithful semantics validated by broad regression tests.
-- Structural deviations are allowed only when semantics remain faithful and the deviation is recorded.
+
+- Stack remains supported; Cabal is the verified build path for this baseline.
+- Prefer `base` plus boot libraries; no parser generators or lens/effect
+  libraries.
+- Correctness means book-faithful semantics validated by regression tests.
 
 ## Deliverables
-### Tier 1 — immediate user-facing outputs
-- `.omx/plans/study-guide-wyah-milestone-1.md`
-- `.omx/plans/roadmap-wyah-build-order.md`
 
-### Tier 2 — mandatory Milestone 0 companions
-- `.omx/plans/prd-wyah-compiler-learning-roadmap.md`
-- `.omx/plans/test-spec-wyah-compiler-learning-roadmap.md`
-- `.omx/plans/architecture-wyah-milestone-1.md`
-- `.omx/plans/regression-matrix-wyah.md`
-- `.omx/plans/parser-decision-wyah.md`
-- `.omx/plans/diagnostics-policy-wyah.md`
-- `.omx/plans/milestones-wyah.md`
+### Code
 
-## Milestones
-### Milestone 0 — Planning + learning artifacts
-Study guide, roadmap, PRD, test spec, architecture notes, regression matrix, parser decision, diagnostics policy, milestone tracker.
+- `src/WYAH/` — complete interpreted ProtoHaskell pipeline.
+- `app/Main.hs` — REPL and file runner.
+- `test/` — accumulating runner, inline structural cases, six fixture
+  files.
+- `examples/` — runnable programs.
 
-### Milestone 1 — Typed interpreter / REPL only
-Stack scaffolding -> source syntax + AST -> parser -> pretty-printing / fixtures -> renamer -> type representation + substitutions -> HM inference -> typed core/desugaring -> evaluator -> REPL -> regression suite.
+### Planning and process
 
-### Milestone 2 — Richer language surface
-Parser ergonomics, minimal datatypes, broader pattern handling, better errors/source spans.
+- `docs/plans/prd-wyah-compiler-learning-roadmap.md` (this file)
+- `docs/plans/roadmap-wyah-build-order.md`
+- `docs/plans/architecture-wyah-milestone-1.md`
+- `docs/plans/milestones-wyah.md`
+- `docs/plans/regression-matrix-wyah.md`
+- `docs/plans/parser-decision-wyah.md`
+- `docs/plans/diagnostics-policy-wyah.md`
+- `docs/plans/test-spec-wyah-compiler-learning-roadmap.md`
+- `docs/plans/study-guide-wyah-milestone-1.md`
+- `docs/process/declaration-semantics.md`
+- `docs/process/declaration-annotations.md`
+- `docs/process/regression-harness.md`
+- `docs/process/diagnostics-assertion-policy.md`
+- `docs/language/protohaskell.md`
+- `docs/audit/2026-11-01-audit.md`
 
-### Milestone 3 — Advanced front-end and semantics
-More ProtoHaskell fidelity, selective typeclass groundwork, stronger IR boundaries.
+## Acceptance criteria
 
-### Milestone 4 — Backend preparation
-Formalize Core/IR invariants and runtime/value representation choices.
+- `cabal build all` succeeds.
+- `cabal test` passes all active cases.
+- The compiler parses, renames, kind-checks, infers, elaborates, and evaluates
+  the supported ProtoHaskell surface.
+- The REPL and file runner work.
+- The regression suite covers parser, renamer, kinds, inference, evaluation,
+  programs, and classes, including negative cases.
+- Boundaries are documented in README and the language reference.
 
-### Milestone 5 — LLVM / native codegen
-Backend implementation, codegen tests, runtime integration.
+## Deviation policy
 
-## Acceptance Criteria
-- Milestone 1 is explicitly defined as typed interpreter / REPL only.
-- All Tier 1 and Tier 2 Milestone 0 artifacts exist.
-- Stack requirement and low-dependency bias are preserved in every artifact.
-- Milestone 1 non-goals are preserved in every artifact.
-- Correctness is defined as book-faithful semantics validated by broad regression tests.
-- Deviation policy is recorded and distinguishes semantics from structure.
-
-## Deviation Policy Summary
-- **Binding:** semantics of scoping, inference, evaluation, and core forms.
-- **Flexible:** module layout, helper abstractions, parser architecture, chapter-to-build order.
-- Any semantic-impacting deviation must be logged with rationale and preserved behavior.
+- **Binding:** scoping, inference, desugaring, evaluation semantics, Core
+  boundaries.
+- **Flexible:** module layout, parser implementation, pretty-printing, test
+  structure, chapter ordering.
+- Semantic-impacting deviations are recorded in the audit/language reference.

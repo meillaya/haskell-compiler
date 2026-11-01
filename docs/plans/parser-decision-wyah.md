@@ -1,26 +1,35 @@
 # Parser Decision Record: WYAH
 
-## Chosen Strategy
-Default to a **minimal-dependency parser path** for Milestone 1.
+## Decision
 
-## Alternatives Considered
-### Handwritten / minimal parser (chosen)
-- Preserves understanding of parsing mechanics.
-- Keeps dependencies low.
-- Best fit for the learning goal.
+Use a **handwritten lexer + layout algorithm + recursive-descent parser** with
+a fixity table and a small backtracking combinator.  No Alex/Happy/Parsec
+dependency is required.
 
-### Lightweight parser library (rejected for now)
-- Could improve ergonomics and diagnostics.
-- Rejected initially because it adds abstraction/dependency overhead before we prove the minimal approach is insufficient.
+## Why
 
-## Dependency Rationale
-Use no external parser dependency unless there is concrete evidence that source-span quality, grammar maintenance, or correctness would otherwise be materially worse.
+- The book's learning goal is to understand parsing mechanics, not to hide
+  them behind a parser generator.
+- Layout is the subtle part; an explicit layout pass makes virtual braces and
+  semicolons inspectable.
+- The grammar is small enough that precedence climbing, pattern parsing, and
+  declaration parsing remain readable.
+- The project keeps a base-only dependency surface.
 
-## Source-Span Implications
-Any parser approach must preserve file/input context and line/column or equivalent spans on parse failures and AST nodes where practical.
+## Consequences
 
-## Revisit Trigger
-Revisit this decision if:
-- maintaining the grammar becomes materially harder than expected,
-- source-span fidelity cannot be preserved cleanly,
-- or Milestone 2 parser requirements clearly exceed the minimal approach.
+- Fixity declarations are collected in a prepass so operator use can precede
+  the declaration.
+- Layout insertion is suspended inside parentheses/brackets; explicit
+  `{}`/`;` is required for multi-line blocks there.
+- The parser is tested structurally (spans, nesting, layout blocks) as well as
+  through fixtures.
+- Alex/Happy remain documented future options for the book's Extended Parser
+  chapter if the grammar grows beyond this implementation.
+
+## Revisit triggers
+
+- Layout inside parentheses becomes common enough to justify a fuller
+  offside-rule implementation.
+- The grammar grows to need generated lexer/parser tables.
+- Source-span fidelity or error recovery becomes materially harder.

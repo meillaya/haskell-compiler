@@ -1,60 +1,46 @@
 # Diagnostics Assertion Policy
 
-Diagnostics are part of the compiler's semantic contract, but they should be tested in a way that is stable under reasonable wording changes.
+Diagnostics are part of the compiler contract, but assertions should be stable
+under reasonable wording changes.
 
 ## Principle
 
-Assertions should be **structural by default** and **textual only when necessary**.
+Assertions are structural by default and textual only when necessary.
 
 ## Structural assertions
 
-Whenever possible, tests should assert:
+Tests assert:
 
-- the phase that failed (`parse`, `rename`, `infer`, `eval`, or `pipeline`),
-- the presence of source span or location information,
-- the semantic failure category,
-- the essential payload of the failure.
-
-Examples of semantic failure categories include:
-
-- malformed syntax,
-- unbound variable,
-- occurs-check failure,
-- branch type mismatch,
-- non-boolean conditional guard,
-- rejected application of a non-function.
+- the phase that failed (`parse`, `rename`, `kind`, `infer`, `eval`,
+  `pipeline`);
+- the presence and value of a source span where applicable;
+- the semantic failure category (`occurs check`, `cannot unify`,
+  `not in scope`, `missing instance`, `pattern match failure`);
+- the essential payload (type names, class name, variable name).
 
 ## Textual assertions
 
-Text matching should be limited to short canonical fragments that are intentionally stable.
+Short, deliberately stable fragments are appropriate:
 
-Examples:
+- `phase=infer`
+- `cannot unify`
+- `occurs check failed`
+- `not in scope`
+- `division by zero`
+- `pattern match failure`
 
-- `"occurs check"`
-- `"cannot unify"`
-- `"not in scope"`
+Full formatted diagnostics are still available to users; tests avoid
+locking in prose where a fragment is sufficient.
 
-Tests should avoid matching entire pretty-printed diagnostic messages unless the full wording is deliberately standardized.
+## Current phase guarantees
 
-## Why this matters
+- parse/rename/kind/infer errors carry a source span;
+- evaluation errors carry the source file but not a span (Core is span-free);
+- pipeline errors are normalized wrappers.
 
-Overly strict full-string assertions create brittle tests that punish harmless wording changes. Overly weak assertions hide real regressions. The middle path is to assert the semantic core of the error while preserving some freedom to improve presentation.
+## Fixture guidance
 
-## Current project guidance
-
-For the current Milestone 1 interpreter:
-
-- parser tests should confirm file/span-bearing failures;
-- rename tests should confirm scope failures with location;
-- inference tests should confirm type/occurs-check mismatches with meaningful fragments and spans where available;
-- evaluation tests should mostly focus on values or well-defined runtime rejection cases.
-
-## Current normalized rendering
-
-Diagnostics currently render in a normalized form like:
-
-```text
-phase=<phase>; source=<source>; span=<span>; message=<message>
-```
-
-`source` may be `<unknown>` when a phase does not yet preserve file-level origin information. `span` may be `<unknown>` for evaluator-level errors until deeper source propagation is implemented.
+- prefer `infer-type`/`eval-value`/`program-value` for success cases;
+- use `infer-error`/`rename-error`/`kind-error`/`eval-error` with a short
+  fragment;
+- assert exact spans only when span behavior is the subject of the test.

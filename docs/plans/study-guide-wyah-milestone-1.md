@@ -1,34 +1,54 @@
-# 1-Page Study Guide: WYAH Milestone 1
+# Study Guide: Interpreted ProtoHaskell
 
 ## Goal
-Build a faithful typed interpreter / REPL for a small WYAH-inspired language before touching LLVM.
 
-## Core Concept Sequence
-1. **Compiler pipeline**: source -> parse -> rename -> infer -> desugar -> evaluate.
-2. **Lambda calculus**: variables, abstraction, application, substitution, reduction.
-3. **Names and scope**: binding structure matters before types do; renaming prevents capture and resolves meaning.
-4. **Type systems**: typing judgments prevent nonsense terms from reaching evaluation.
-5. **Hindley–Milner**: constraints + unification + generalization/instantiation give principal types.
-6. **Evaluation**: use a small typed core whose runtime behavior is easy to reason about.
-7. **ProtoHaskell mindset**: preserve semantics, keep the source language teachable, and use explicit IR boundaries.
+Understand every pass from source text to a lazy Core interpreter, using the
+book's ProtoHaskell language as the target.
 
-## Mental Model for the Project
-- **Surface AST**: parsed syntax with spans, not yet resolved.
-- **Renamed AST**: names are uniquely bound or rejected.
-- **Typed/Core IR**: smaller semantics-bearing language.
-- **Evaluator/REPL**: prove the semantics before backend complexity.
+## Core concept sequence
 
-## Milestone 1 Success Bar
+1. **Pipeline**: source -> parse -> rename -> desugar -> kind -> infer ->
+   elaborate -> Core -> evaluate.
+2. **Lambda calculus**: variables, abstraction, application, environments,
+   thunks, beta reduction by substitution in the environment.
+3. **Names and scope**: binding structure first; unique `ResolvedName`s
+   prevent capture; recursive scopes are explicit.
+4. **Kinds**: data parameters may be higher-kinded; kinds are unified and
+   defaulted; synonyms are expanded first.
+5. **Hindley–Milner**: constraints, unification, occurs checks, let-
+   generalization, instantiation.
+6. **Qualified types**: constraints become scheme predicates; instance
+   resolution produces dictionaries; superclasses select fields.
+7. **Desugaring**: multiple equations, guards, where, do, comprehensions,
+   ranges, sections, records/selectors.
+8. **Core**: small, explicit, evidence-carrying IR; pattern matching compiles
+   to cases; dictionaries are values.
+9. **Evaluation**: call-by-need thunks, recursive environments, lazy lists,
+   IO actions.
+10. **ProtoHaskell mindset**: preserve semantics, keep the source teachable,
+    and use explicit IR boundaries.
+
+## Mental model
+
+- **Surface AST**: parsed syntax with spans, unresolved.
+- **Renamed AST**: unique binders, grouped equations, no `do` sugar.
+- **Canonical typed AST**: kinds/types/schemes, evidence ids.
+- **Core**: explicit dictionaries, no source sugar, evaluation-ready.
+- **Runtime**: thunks/values/IO actions.
+
+## Success bar
+
 - Parses representative book examples.
-- Rejects bad syntax, bad scope, and bad types intentionally.
-- Infers expected HM types for core examples.
-- Evaluates implemented constructs with book-faithful semantics.
-- Is backed by a broad regression matrix derived from the text.
+- Rejects bad syntax, scope, kinds, and types intentionally.
+- Infers expected HM/qualified types.
+- Evaluates with lazy semantics and dictionary dispatch.
+- Backed by a broad regression suite derived from the text.
 
-## Defer Until Later
-- LLVM / native codegen
-- Optimizers
-- Typeclasses
-- Advanced ADTs / pattern compilation
-- Layout-sensitive parsing
-- Full Haskell language ambition
+## Suggested exercises
+
+- Add a new primitive and its scheme/evaluator case.
+- Add a new instance and inspect `:core`.
+- Add a record selector shared by two constructors.
+- Extend the parser with a new expression form and thread it through all
+  passes.
+- Add a Core type checker (the book recommends one).

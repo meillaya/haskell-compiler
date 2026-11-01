@@ -1,15 +1,37 @@
 # fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
-eval-app|expr|eval|eval-value|active-now|(\\x -> x) 42|type: Int\nvalue: VInt 42|Evaluation|application evaluation
-eval-let|expr|eval|eval-value|active-now|let id = \\x -> x in id 42|type: Int\nvalue: VInt 42|Evaluation|let evaluation
-eval-if-true|expr|eval|eval-value|active-now|if true then 1 else 0|type: Int\nvalue: VInt 1|Evaluation|if true branch
-eval-if-false|expr|eval|eval-value|active-now|if false then 1 else 0|type: Int\nvalue: VInt 0|Evaluation|if false branch
-eval-succ|expr|eval|eval-value|active-now|succ 0|type: Int\nvalue: VInt 1|Evaluation|succ primitive
-eval-pred-succ|expr|eval|eval-value|active-now|pred (succ 0)|type: Int\nvalue: VInt 0|Evaluation|pred primitive
-eval-iszero|expr|eval|eval-value|active-now|iszero 0|type: Bool\nvalue: VBool True|Evaluation|predicate primitive
-eval-add|expr|eval|eval-value|active-now|add 2 3|type: Int\nvalue: VInt 5|Evaluation|addition primitive
-eval-primitive-if|expr|eval|eval-value|active-now|if iszero 0 then 1 else 2|type: Int\nvalue: VInt 1|Evaluation|primitive-driven conditional
-eval-pipeline-error|expr|pipeline|pipeline-error|active-now|42 0|cannot unify|Evaluation|ill-typed application rejected before eval
-eval-add-op|expr|eval|eval-value|active-now|1 + 2|type: Int\nvalue: VInt 3|Evaluation|operator addition desugars to add
-eval-add-op-chain|expr|eval|eval-value|active-now|1 + 2 + 3|type: Int\nvalue: VInt 6|Evaluation|left-associative addition operator
-eval-op-with-builtin|expr|eval|eval-value|active-now|1 + succ 2|type: Int\nvalue: VInt 4|Evaluation|operator grammar composes with builtin application
-eval-prefix-minus|expr|eval|eval-value|active-now|- 1|type: Int\nvalue: VInt 0|Evaluation|prefix minus reuses pred builtin
+eval-arithmetic|expr|eval|eval-value|active-now|1 + 2 * 3|7|Evaluation|precedence in evaluator
+eval-parens|expr|eval|eval-value|active-now|(1 + 2) * 3|9|Evaluation|parentheses override precedence
+eval-negate|expr|eval|eval-value|active-now|- 1|-1|Evaluation|prefix minus is negation
+eval-application|expr|eval|eval-value|active-now|(\x -> x) 42|42|Lambda Calculus|application
+eval-let|expr|eval|eval-value|active-now|let x = 1 in x + 2|3|Evaluation|let binding
+eval-if-true|expr|eval|eval-value|active-now|if True then 1 else 0|1|Evaluation|true branch
+eval-if-false|expr|eval|eval-value|active-now|if False then 1 else 0|0|Evaluation|false branch
+eval-add-builtin|expr|eval|eval-value|active-now|add 2 3|5|Evaluation|builtin addition
+eval-map|expr|eval|eval-value|active-now|map (\x -> x + 1) [1,2,3]|[2, 3, 4]|Evaluation|map over a list
+eval-filter|expr|eval|eval-value|active-now|filter (\x -> x > 1) [1,2,3]|[2, 3]|Evaluation|filter
+eval-take-range|expr|eval|eval-value|active-now|take 5 [2..]|[2, 3, 4, 5, 6]|Evaluation|lazy infinite list
+eval-string|expr|eval|eval-value|active-now|"abc"|"abc"|Evaluation|string literal is a char list
+eval-tuple|expr|eval|eval-value|active-now|(1, True)|(1, True)|Datatypes|tuple value
+eval-section|expr|eval|eval-value|active-now|(1 +) 2|3|Evaluation|left section
+eval-case|expr|eval|eval-value|active-now|case Just 3 of Just x -> x; Nothing -> 0|3|Renamer|case pattern binding
+eval-do-io|expr|eval|eval-value|active-now|do { x <- return 41; return (x + 1) }|42|Evaluation|do notation and IO
+eval-division-zero|expr|eval|eval-error|active-now|1 / 0|division by zero|Evaluation|runtime division by zero
+eval-pattern-fail|program|eval|eval-error|active-now|f (Just x) = x\nmain = f Nothing\n|pattern match failure|Evaluation|non-exhaustive match
+eval-factorial|program|eval|program-value|active-now|fact 0 = 1\nfact n = n * fact (n - 1)\nmain = fact 5\n|120|Evaluation|recursive factorial
+eval-guards|program|eval|program-value|active-now|sign x\n  \| x > 0 = 1\n  \| x < 0 = -1\n  \| otherwise = 0\nmain = sign (-5)\n|-1|Evaluation|guarded equations
+eval-where|program|eval|program-value|active-now|f x = go 0 x\n  where\n    go acc n = if n == 0 then acc else go (acc + n) (n - 1)\nmain = f 5\n|15|Evaluation|where binds over the body
+eval-recursive-let|program|eval|program-value|active-now|main = let fact n = if n == 0 then 1 else n * fact (n - 1) in fact 5\n|120|Evaluation|recursive let
+eval-primes|program|eval|program-value|active-now|sieve [] = []\nsieve (p:ps) = p : sieve (filter (nonMultiple p) ps)\nnonMultiple p n = ((n / p) * p) /= n\nprimes = sieve [2..]\nmain = take 5 primes\n|[2, 3, 5, 7, 11]|Evaluation|lazy infinite prime sieve
+eval-record|program|eval|program-value|active-now|data Person = Person { name :: [Char], age :: Int }\nmain = name (Person "Ada" 36)\n|"Ada"|Datatypes|record selector
+eval-operator|program|eval|program-value|active-now|infixl 6 <+>\n(<+>) :: Int -> Int -> Int\nx <+> y = x + y\nmain = 1 <+> 2 * 3\n|7|Frontend|custom operator fixity
+eval-superclass|program|eval|program-value|active-now|class Eq2 a where\n  eq2 :: a -> a -> Bool\nclass Eq2 a => Ord2 a where\n  cmp2 :: a -> a -> Bool\ninstance Eq2 Int where\n  eq2 x y = x == y\ninstance Ord2 Int where\n  cmp2 x y = x < y\nf :: Ord2 a => a -> a -> Bool\nf x y = eq2 x y\nmain = f 1 1\n|True|Type Classes|superclass dictionary
+eval-instance-context|program|eval|program-value|active-now|class Eq2 a where\n  eq2 :: a -> a -> Bool\ninstance Eq2 Int where\n  eq2 x y = x == y\ninstance Eq2 a => Eq2 [a] where\n  eq2 xs ys = case xs of\n    [] -> case ys of\n            [] -> True\n            _ -> False\n    (x:xs') -> case ys of\n                 [] -> False\n                 (y:ys') -> if eq2 x y then eq2 xs' ys' else False\nsame :: Eq2 a => a -> a -> Bool\nsame x y = eq2 x y\nmain = same [1,2] [1,2]\n|True|Type Classes|instance context dictionaries
+eval-fix|program|eval|program-value|active-now|fixfact = fix (\fact -> \m -> if m == 0 then 1 else m * fact (m - 1))\nmain = fixfact 5\n|120|Lambda Calculus|fixpoint combinator
+eval-pattern-guard|program|eval|program-value|active-now|pat x\n  \| Just y <- x, y > 0 = y\n  \| otherwise = 0\nmain = pat (Just 5)\n|5|Renamer|comma-separated pattern guards
+eval-compose|program|eval|program-value|active-now|addOne = (\x -> x + 1) . (\y -> y * 2)\nmain = addOne 3\n|7|Evaluation|composition operator
+eval-dollar|program|eval|program-value|active-now|main = (\x -> x + 1) $ 2\n|3|Evaluation|low-precedence application
+eval-show|program|eval|program-value|active-now|main = show 42\n|"42"|Evaluation|show primitive
+eval-as-pattern|program|eval|program-value|active-now|f p@(Just x) = x\nmain = f (Just 7)\n|7|Renamer|as-pattern
+eval-case-guards|program|eval|program-value|active-now|f x = case x of { Just y \| y > 0 -> y \| otherwise -> 0; Nothing -> 1 }\nmain = f (Just 5)\n|5|Evaluation|guards in case alternatives
+eval-comment|program|eval|program-value|active-now|main = 1 -- trailing comment\n|1|Parsing|line comments
+eval-local-signature|program|eval|program-value|active-now|main = let f :: Int -> Int; f x = x + 1 in f 2\n|3|Frontend|local type signature

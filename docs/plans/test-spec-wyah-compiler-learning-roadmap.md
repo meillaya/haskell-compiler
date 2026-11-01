@@ -1,60 +1,73 @@
 # Test Specification: WYAH Compiler Learning Roadmap
 
-## Test Categories
-- Parser acceptance
-- Renamer / scope resolution
-- Hindley–Milner inference
-- Evaluator semantics
-- Negative tests (unbound names, ill-typed terms)
-- Forward-looking compatibility markers
+## Test categories
 
-## Chapter Mapping
-| Chapter / Area | Primary Pass | Example Source | Status Expectation |
+- parser acceptance, structural spans, layout and fixity;
+- renamer/scope resolution and duplicate checks;
+- synonym expansion and kind inference;
+- Hindley–Milner inference, generalization, annotations, signatures;
+- dictionary/instance resolution and superclasses;
+- evaluator semantics, laziness, IO, and runtime failures;
+- forward-looking/staged markers for unsupported features.
+
+## Chapter mapping
+
+| Area | Primary pass | Fixture group | Status |
 | --- | --- | --- | --- |
-| Parsing | Parser | arithmetic / lambda parser examples | active-now |
-| Lambda Calculus | Parser + Eval | substitution/reduction examples | active-now |
-| Type Systems | Infer + Eval | STLC examples | active-now |
-| Hindley-Milner Inference | Infer | polymorphism / occurs-check examples | active-now |
-| Design of ProtoHaskell | Core + Eval | typed interpreter behaviors | active-now |
-| Frontend / Renamer | Name | scope and binding examples | active-now |
-| Datatypes | Future surface/core | datatype examples | staged-for-later or blocked-by-non-goal |
-| LLVM / Codegen | Backend | codegen examples | blocked-by-non-goal |
+| Parsing / layout | Parser | parser.tsv, inline | active |
+| Lambda calculus / evaluation | Eval | eval.tsv, inline | active |
+| Type systems / HM | Infer | infer.tsv, inline | active |
+| ProtoHaskell frontend | Renamer/Kind/Infer | program.tsv, inline | active |
+| Renamer | Renamer | rename.tsv, inline | active |
+| Datatypes/records | Kind/Infer/Eval | program.tsv, eval.tsv | active |
+| Typeclasses | Kind/Infer/Elaborate/Eval | classes.tsv, infer.tsv | active |
+| Extended parser | Parser | parser.tsv | active (handwritten) |
+| LLVM/codegen | Backend | none | out-of-book |
 
-## Negative Tests
-- Unbound variable should fail in renamer with source location.
-- Duplicate binding should fail in renamer with source location.
-- Type mismatch should fail in inference with source location.
-- Infinite type / occurs-check failure should be reported.
-- Invalid syntax should fail in parser with line/column or equivalent span.
+## Negative tests
 
-## Forward-Looking Tests
-Each forward-looking test must be classified as exactly one of:
-- `active-now`
-- `staged-for-later`
-- `blocked-by-non-goal`
+- unbound variable;
+- duplicate datatype/class/method/record field;
+- non-linear pattern;
+- malformed syntax and end-of-input;
+- kind mismatch;
+- unification failure, occurs check, non-boolean guard;
+- missing instance;
+- signature/annotation mismatch;
+- pattern-match failure, division by zero, non-exhaustive function.
 
-### Policy
-- `active-now`: within Milestone 1 scope and valuable for semantic drift prevention now.
-- `staged-for-later`: documented now, not required to pass in Milestone 1.
-- `blocked-by-non-goal`: explicitly out of Milestone 1 because it depends on a locked non-goal.
+## Status policy
 
-## Coverage Minimums
-For plan readiness, the regression matrix must identify at least:
-- 3 parser examples/tests
-- 2 renamer/scope tests
-- 3 HM inference / type-error tests
-- 2 evaluator-semantics tests
-- 4 forward-looking later-chapter markers total, split across staged-for-later / blocked-by-non-goal
-- 12 total entries with at least 8 active-now, 2 staged-for-later, 2 blocked-by-non-goal
+- `active-now`: part of the current contract and enforced.
+- `staged-for-later`: documented, skipped by the runner.
+- `blocked-by-non-goal`: intentionally out of scope.
 
-## Verification Commands
-- `stack build`
-- `stack test`
-- `stack ghci`
+Skipped rows remain visible in fixtures but do not count as passing tests.
 
-## Evidence Expectations
-- Required plan artifacts exist at the canonical paths.
-- Required section headers exist in each artifact.
-- No artifact widens Milestone 1 beyond locked non-goals.
-- Regression matrix includes source chapter, expected semantics, owning stage, and tri-state status.
-- Later-chapter tests do not silently expand present implementation scope.
+## Coverage minimums
+
+The suite exceeds the original minimums:
+
+- parser: literals, spans, layout, fixity, sections, ranges, records, GADTs;
+- renamer: unbound, duplicates, shadowing, recursion, selectors;
+- kinds: higher-kinded parameters, kind errors, synonyms;
+- inference: id/const/compose, let-polymorphism, annotations, signatures,
+  class constraints, occurs checks;
+- evaluator: arithmetic, ADTs, guards/where, lists/tuples/comprehensions,
+  records, classes, laziness, IO, runtime errors.
+
+## Verification commands
+
+```bash
+cabal build all
+cabal test
+stack test        # when Stack is available
+devenv test       # when devenv is available
+```
+
+## Evidence expectations
+
+- Tests run all groups and report a summary.
+- Positive cases assert types or rendered values.
+- Negative cases assert phase plus a stable semantic fragment.
+- Structural parser tests assert spans/nesting independently of fixtures.

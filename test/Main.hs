@@ -1,28 +1,39 @@
-module Main where
+module Main (main) where
 
-import System.Exit (exitFailure)
+import Control.Monad (forM)
+import System.Exit (exitFailure, exitSuccess)
 import WYAH.TestCases
 
 main :: IO ()
 main = do
   groups <- groupedCases
-  mapM_ runGroup groups
-  putStrLn "All tests passed."
+  results <- forM groups $ \group_ -> do
+    putStrLn ("== " <> groupName group_ <> " ==")
+    outcomes <- forM (cases group_) runCase
+    pure (groupName group_, outcomes)
+  let allOutcomes = concatMap snd results
+      passed = length [() | (True, _) <- allOutcomes]
+      failed = length [details | (False, details) <- allOutcomes]
+  putStrLn ""
+  putStrLn
+    ( "summary: "
+        <> show passed
+        <> " passed, "
+        <> show failed
+        <> " failed"
+    )
+  if failed == 0
+    then putStrLn "All tests passed." >> exitSuccess
+    else exitFailure
 
-runGroup :: CaseGroup -> IO ()
-runGroup group_ = do
-  putStrLn ("== " <> groupName group_ <> " ==")
-  mapM_ runCase (cases group_)
-
-runCase :: Case -> IO ()
-runCase testCase =
-  case testCase of
-    AssertionCase label condition -> assert label condition
-
-assert :: String -> Bool -> IO ()
-assert label condition =
-  if condition
-    then putStrLn ("[ok] " <> label)
-    else do
-      putStrLn ("[fail] " <> label)
-      exitFailure
+runCase :: Case -> IO (Bool, String)
+runCase testCase = do
+  result <- caseRun testCase
+  case result of
+    Left details -> do
+      putStrLn ("[fail] " <> caseLabel testCase)
+      putStrLn ("       " <> details)
+      pure (False, caseLabel testCase <> ": " <> details)
+    Right () -> do
+      putStrLn ("[ok] " <> caseLabel testCase)
+      pure (True, caseLabel testCase)

@@ -1,13 +1,21 @@
 # fixtureId|sourceKind|phase|expectationKind|status|input|expected|chapterRef|notes
-infer-succ|expr|infer|infer-type|active-now|succ|Int -> Int|Type Systems / HM|builtin succ is in scope
-infer-add|expr|infer|infer-type|active-now|add|Int -> Int -> Int|Type Systems / HM|builtin add is in scope
-infer-id|expr|infer|infer-type|active-now|\\x -> x|t0 -> t0|Type Systems / HM|identity type
-infer-const|expr|infer|infer-type|active-now|\\x -> \\y -> x|t0 -> t1 -> t0|Type Systems / HM|const type
-infer-bool|expr|infer|infer-type|active-now|true|Bool|Type Systems / HM|boolean type
-infer-if|expr|infer|infer-type|active-now|if true then 1 else 0|Int|Type Systems / HM|if expression type
-infer-branch-mismatch|expr|infer|infer-error|active-now|if true then 1 else false|phase=infer; source=<unknown>; span=1:1-1:26; message=cannot unify Int with Bool|Type Systems / HM|branch mismatch
-infer-non-bool-cond|expr|infer|infer-error|active-now|if 1 then 2 else 3|phase=infer; source=<unknown>; span=1:1-1:19; message=cannot unify Int with Bool|Type Systems / HM|guard must be Bool
-infer-occurs|expr|infer|infer-error|active-now|\\x -> x x|phase=infer; source=<unknown>; span=1:7-1:10; message=occurs check failed|Hindley-Milner Inference|occurs check failure
-infer-let-poly|expr|infer|infer-type|active-now|let id = \\x -> x in let keep = id 42 in id (\\y -> y)|t0 -> t0|Hindley-Milner Inference|let-polymorphism
-infer-add-op|expr|infer|infer-type|active-now|1 + 2|Int|Type Systems / HM|operator addition type
-infer-op-precedence-surface|expr|infer|infer-type|active-now|1 + succ 2|Int|Type Systems / HM|operator surface reuses existing semantics
+infer-id|expr|infer|infer-type|active-now|\x -> x|forall t0. t0 -> t0|Hindley-Milner|identity type
+infer-const|expr|infer|infer-type|active-now|\x -> \y -> x|forall t0 t1. t0 -> t1 -> t0|Hindley-Milner|const type
+infer-compose|expr|infer|infer-type|active-now|\f -> \g -> \x -> f (g x)|forall t0 t1 t2. (t0 -> t1) -> (t2 -> t0) -> t2 -> t1|Hindley-Milner|composition type
+infer-bool|expr|infer|infer-type|active-now|True|Bool|Hindley-Milner|boolean type
+infer-if|expr|infer|infer-type|active-now|if True then 1 else 0|Int|Hindley-Milner|branch type
+infer-let-poly|expr|infer|infer-type|active-now|let id = \x -> x in let keep = id 42 in id (\y -> y)|forall t0. t0 -> t0|Hindley-Milner|let-polymorphism
+infer-succ|expr|infer|infer-type|active-now|succ|Int -> Int|Type Systems|builtin succ
+infer-add|expr|infer|infer-type|active-now|add|Int -> Int -> Int|Type Systems|builtin add
+infer-branch-mismatch|expr|infer|infer-error|active-now|if True then 1 else False|cannot unify Int with Bool|Hindley-Milner|branch mismatch
+infer-non-bool|expr|infer|infer-error|active-now|if 1 then 2 else 3|cannot unify Int with Bool|Hindley-Milner|guard must be Bool
+infer-occurs|expr|infer|infer-error|active-now|\x -> x x|occurs check failed|Hindley-Milner|occurs check
+infer-annotated|program|infer|infer-type|active-now|id :: forall a. a -> a\nid x = x\nmain = id 1\n|Int|Frontend|explicit signature checked
+infer-signature-mismatch|program|infer|infer-error|active-now|id :: Int -> Bool\nid x = x\nmain = id 1\n|cannot unify|Frontend|signature mismatch
+infer-higher-kinded|program|infer|infer-type|active-now|data T1 f a = T1 (f a)\ngetT (T1 x) = x\nmain = getT (T1 (Just 42))\n|Maybe Int|Datatypes|higher-kinded constructor
+infer-class-scheme|program|infer|infer-type|active-now|class Eq2 a where\n  eq2 :: a -> a -> Bool\ninstance Eq2 Int where\n  eq2 x y = x == y\nsame :: Eq2 a => a -> a -> Bool\nsame x y = eq2 x y\nmain = same 1 1\n|Bool|Type Classes|class constraint retained
+infer-type-synonym|program|infer|infer-type|active-now|type Pair a = (a, a)\npair :: Pair Int\npair = (1, 2)\nmain = pair\n|(Int, Int)|Frontend|type synonym expands
+infer-kind-error|program|kind|kind-error|active-now|data Bad = Bad (Maybe Int Int)\nmain = 1\n|phase=kind|Datatypes|ill-kinded constructor rejected
+infer-annotation|expr|infer|infer-type|active-now|(1 :: Int)|Int|Frontend|expression annotation accepted
+infer-annotation-mismatch|expr|infer|infer-error|active-now|(1 :: Bool)|cannot unify Int with Bool|Frontend|expression annotation checked
+infer-fix|expr|infer|infer-type|active-now|fix (\x -> x)|forall t0. t0|Lambda Calculus|fix has a polymorphic type

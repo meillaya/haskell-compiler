@@ -1,47 +1,98 @@
 # Regression Matrix: WYAH
 
-| ID | Source Chapter | Example / Behavior | Expected Semantics | Owning Stage | Status |
-| --- | --- | --- | --- | --- | --- |
-| P1 | Parsing | integer literal parses | AST node created with span | Parser | active-now |
-| P2 | Parsing | lambda parses | lambda AST shape preserved | Parser | active-now |
-| P3 | Parsing | malformed token stream fails | parse error with normalized phase/source/span diagnostics | Parser | active-now |
-| P4 | Parsing | `let` expression parses | `let` syntax lowers into expression semantics | Parser | active-now |
-| P5 | Parsing | `if` expression parses | conditional surface syntax preserved | Parser | active-now |
-| P6 | Parsing | boolean literal parses | `true`/`false` become boolean literals | Parser | active-now |
-| P7 | Parsing | `+` operator parses | surface-only operator syntax desugars to existing builtins | Parser | active-now |
-| P8 | Parsing | prefix `-` parses | unary minus surface form desugars to existing builtin semantics | Parser | active-now |
-| PR1 | Program Parsing | single top-level declaration parses | `Program [Decl] Expr` shape is preserved | Parser | active-now |
-| PR2 | Program Parsing | missing semicolon rejected | declaration separator errors are reported structurally | Parser | active-now |
-| PR3 | Program Parsing | missing final expression rejected | program shape requires final expression | Parser | active-now |
-| N1 | Renamer | unbound variable `y` in `\x -> y` | reject with normalized source-aware diagnostic | Name | active-now |
-| N2 | Renamer | duplicate top-level declaration | reject duplicate top-level names | Name | active-now |
-| N3 | Renamer | forward reference at top level | declarations are sequential and non-recursive | Name | active-now |
-| T1 | Type Systems / HM | `id` infers `forall a. a -> a` | principal type reported | Infer | active-now |
-| T2 | HM | `const` infers `forall a b. a -> b -> a` | principal type reported | Infer | active-now |
-| T3 | HM | `\x -> x x` fails occurs check | infinite type rejected | Infer | active-now |
-| T4 | HM | boolean literal infers `Bool` | boolean type reported | Infer | active-now |
-| T5 | HM | `if true then 1 else 0` infers `Int` | branches unify | Infer | active-now |
-| T6 | HM | branch mismatch rejected | conditional branches must have same type | Infer | active-now |
-| T7 | HM | non-boolean guard rejected | condition must be `Bool` | Infer | active-now |
-| T8 | HM | builtin `succ` infers `Int -> Int` | builtin environment exposes primitive type | Infer | active-now |
-| T9 | HM | builtin `add` infers `Int -> Int -> Int` | builtin environment exposes primitive type | Infer | active-now |
-| T10 | HM | `let`-polymorphism reuses identity | generalization/instantiation works for current interpreter scope | Infer | active-now |
-| T11 | HM | operator expressions infer through desugaring | `1 + succ 2` preserves existing typing semantics | Infer | active-now |
-| TP1 | Program Types | program final expression infers after declarations | top-level declarations extend later typing environments | Infer | active-now |
-| E1 | Evaluation | application evaluates | closures apply through environments | Eval | active-now |
-| E2 | Evaluation | `let` evaluates | bound expression extends scope | Eval | active-now |
-| E3 | Evaluation | `if` true/false branches evaluate | guard controls branch selection | Eval | active-now |
-| E4 | Evaluation | `succ`, `pred`, `iszero`, `add` evaluate | builtins execute through predefined runtime environment | Eval | active-now |
-| E5 | Evaluation | operator expressions evaluate | operator surface desugars to existing builtin semantics | Eval | active-now |
-| EP1 | Program Evaluation | sequential declarations evaluate | program lowers after validation/renaming to ordered lets | Eval | active-now |
-| EP2 | Pipeline | ill-typed application rejected before eval | type failure prevents invalid runtime execution | Infer | active-now |
-| F1 | Datatypes | minimal datatype constructor behavior | compatibility marker only | Core | staged-for-later |
-| F2 | Extended Parser | richer operator/layout case | compatibility marker only | Parser | staged-for-later |
-| F3 | Program Semantics | recursive declaration groups | deferred until a later program-semantics target | Name/Infer/Eval | staged-for-later |
-| B1 | LLVM | simple arithmetic codegen | blocked by Milestone 1 non-goal | Core/Backend | blocked-by-non-goal |
-| B2 | Typeclasses | overloaded plus via dictionary passing | blocked by Milestone 1 non-goal | Infer/Core | blocked-by-non-goal |
+Status legend: `active` (enforced by the test suite), `staged` (documented
+future work), `out-of-book` (not part of ProtoHaskell).
 
-## Notes
-- `active-now` tests should inform and protect the current typed-interpreter baseline.
-- `staged-for-later` tests shape the architecture but do not gate Milestone 1 completion yet.
-- `blocked-by-non-goal` tests document future direction and must not widen current scope.
+## Parsing
+
+| ID | Behaviour | Test source | Status |
+| --- | --- | --- | --- |
+| P1 | Integer/char/string literals | `parser.tsv`, inline | active |
+| P2 | Lambda spans | `parser.tsv`, inline | active |
+| P3 | `let` expression | `parser.tsv`, inline | active |
+| P4 | `if`/`case` expressions | `parser.tsv`, `layout-case` | active |
+| P5 | Operator precedence/fixity | `parse-add`, `parse-precedence` | active |
+| P6 | Prefix negation | `parse-negative`, `eval-negate` | active |
+| P7 | Lists, tuples, ranges | `parse-tuple-section`, `parse-list-range` | active |
+| P8 | Sections | `parse-op-section` | active |
+| P9 | Comments | inline `commentModule` | active |
+| P10 | Layout `where`/`do`/`case`/`class` | `layout-*` fixtures | active |
+| P11 | Data/record/GADT syntax | `parse-record-data`, `parse-gadt-data` | active |
+| P12 | Parse errors with spans | `parse-error-*` | active |
+| P13 | Layout inside parentheses | none | staged (explicit braces required) |
+
+## Renaming and scope
+
+| ID | Behaviour | Test source | Status |
+| --- | --- | --- | --- |
+| N1 | Unbound variable rejected | `rename-unbound` | active |
+| N2 | Duplicate datatype rejected | `rename-dup-data` | active |
+| N3 | Non-linear pattern rejected | `rename-dup-pattern` | active |
+| N4 | Shadowing keeps inner binder | `shadowModule` | active |
+| N5 | Recursive top-level visibility | `rename-forward`, `program-mutual` | active |
+| N6 | Record selector generation | `eval-record` | active |
+| N7 | Class method resolution | `classes.tsv` | active |
+
+## Kinds
+
+| ID | Behaviour | Test source | Status |
+| --- | --- | --- | --- |
+| K1 | Higher-kinded data parameter | inline `higherKindedModule` | active |
+| K2 | Ill-kinded constructor rejected | inline `illKindedModule` | active |
+| K3 | Type synonym expansion/saturation | `infer-type-synonym` | active |
+| K4 | Class/superclass kind checking | `classes.tsv` | active |
+
+## Inference
+
+| ID | Behaviour | Test source | Status |
+| --- | --- | --- | --- |
+| T1 | Identity/const/composition | `infer-id`, `infer-const`, `infer-compose` | active |
+| T2 | Let-polymorphism | `infer-let-poly` | active |
+| T3 | Occurs check | `infer-occurs` | active |
+| T4 | Branch/guard type errors | `infer-branch-mismatch`, `infer-non-bool` | active |
+| T5 | Explicit signature checking | `infer-annotated`, `infer-signature-mismatch` | active |
+| T6 | Expression annotations | `infer-annotation*` | active |
+| T7 | Higher-kinded constructor use | `infer-higher-kinded` | active |
+| T8 | Class scheme predicates | `infer-class-scheme` | active |
+| T9 | Missing instance rejected | `class-context-fail` | active |
+| T10 | Polymorphic instance contexts | `eval-instance-context` | active |
+
+## Evaluation
+
+| ID | Behaviour | Test source | Status |
+| --- | --- | --- | --- |
+| E1 | Arithmetic/precedence/negation | `eval-arithmetic`, `eval-negate` | active |
+| E2 | Application/let/if | `eval-application`, `eval-let`, `eval-if-*` | active |
+| E3 | ADTs and pattern matching | `eval-case`, `eval-factorial` | active |
+| E4 | Guards/where/recursion | `eval-guards`, `eval-where`, `eval-recursive-let` | active |
+| E5 | Laziness/infinite lists | `eval-primes`, `eval-take-range` | active |
+| E6 | Lists/tuples/comprehensions | `eval-map`, `eval-filter`, `eval-comprehension` | active |
+| E7 | Records/selectors | `eval-record` | active |
+| E8 | Custom operators | `eval-operator` | active |
+| E9 | IO/do notation | `eval-do-io`, `program-do-let` | active |
+| E10 | Pattern-match failure | `eval-pattern-fail` | active |
+| E11 | `fix` | `eval-fix`, `infer-fix` | active |
+| E12 | Pattern guards/as-patterns | `eval-pattern-guard`, `eval-as-pattern` | active |
+
+## Typeclasses
+
+| ID | Behaviour | Test source | Status |
+| --- | --- | --- | --- |
+| C1 | Int instance | `class-int` | active |
+| C2 | Bool instance | `class-bool` | active |
+| C3 | Parametric list instance | `class-list` | active |
+| C4 | Superclass selection | `eval-superclass` | active |
+| C5 | Instance context dictionaries | `eval-instance-context` | active |
+| C6 | Default methods | none | staged |
+| C7 | Method-specific constraints | none | staged |
+| C8 | `deriving` generation | none | staged |
+
+## Out-of-book boundaries
+
+| ID | Behaviour | Status |
+| --- | --- | --- |
+| B1 | LLVM/STG/Imp/codegen | out-of-book |
+| B2 | Modules/imports | out-of-book |
+| B3 | Full GADT type system | out-of-book (syntax only) |
+| B4 | Record construction/update syntax | staged |
+| B5 | Newtypes/type families/GHC extensions | out-of-book |
