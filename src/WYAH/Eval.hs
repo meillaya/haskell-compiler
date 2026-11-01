@@ -18,8 +18,7 @@ import WYAH.Span (Span(..))
 import WYAH.Syntax (Literal(..))
 
 data Thunk
-  = Thunk Env CoreExpr
-  | ThunkValue Value
+  = ThunkValue Value
   | ThunkDelay (Either EvalError Value)
 
 type Env = [(ResolvedName, Thunk)]
@@ -77,7 +76,7 @@ evalPure source core expression =
 moduleEnvironment :: EvalContext -> CoreModule -> Env
 moduleEnvironment context core = bindings <> preludeEnvironment context
   where
-    bindings = [(name, Thunk environment expression) | (name, expression) <- coreBindings core]
+    bindings = [(name, ThunkDelay (eval context environment expression)) | (name, expression) <- coreBindings core]
     environment = bindings <> preludeEnvironment context
 
 preludeEnvironment :: EvalContext -> Env
@@ -114,12 +113,12 @@ eval context environment expression = case expression of
   CLam names body -> Right (VClosure environment names body)
   CApp function argument -> do
     functionValue <- eval context environment function
-    apply context functionValue (Thunk environment argument)
+    apply context functionValue (ThunkDelay (eval context environment argument))
   CLet bindings body ->
-    let environment' = [(name, Thunk environment value) | (name, value) <- bindings] <> environment
+    let environment' = [(name, ThunkDelay (eval context environment' value)) | (name, value) <- bindings] <> environment
      in eval context environment' body
   CLetRec bindings body ->
-    let environment' = [(name, Thunk environment' value) | (name, value) <- bindings] <> environment
+    let environment' = [(name, ThunkDelay (eval context environment' value)) | (name, value) <- bindings] <> environment
      in eval context environment' body
   CCase scrutinee alternatives fallback -> do
     scrutineeValue <- eval context environment scrutinee
@@ -133,7 +132,7 @@ eval context environment expression = case expression of
       Just _ -> Right (VConFun name [])
       Nothing -> Left (evalError context ("unknown constructor " <> show name))
   CDict className fields ->
-    Right (VDict className [(selector, Thunk environment expression) | (selector, expression) <- fields])
+    Right (VDict className [(selector, ThunkDelay (eval context environment expression)) | (selector, expression) <- fields])
   CSelect dictionary selector -> do
     dictionaryValue <- eval context environment dictionary
     case dictionaryValue of
@@ -145,9 +144,8 @@ eval context environment expression = case expression of
   CError message -> Left (evalError context message)
 
 force :: EvalContext -> Thunk -> Either EvalError Value
-force context thunk = case thunk of
+force _ thunk = case thunk of
   ThunkValue value -> Right value
-  Thunk environment expression -> eval context environment expression
   ThunkDelay result -> result
 
 apply :: EvalContext -> Value -> Thunk -> Either EvalError Value
