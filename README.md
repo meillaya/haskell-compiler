@@ -175,21 +175,6 @@ The suite is evidence about the implementation. It is not a mechanized soundness
 
 The ProtoHaskell chapters in the book stop before native code generation. The LLVM chapter does not define a ProtoHaskell backend. This implementation follows that boundary.
 
-## Repository map
-
-| Path | Contents |
-| --- | --- |
-| `src/WYAH/Span.hs`, `Diagnostic.hs` | Source positions, spans, normalized diagnostics. |
-| `src/WYAH/Syntax.hs`, `Lexer.hs`, `Parser.hs` | Surface AST, tokenizer, layout, fixity, parser. |
-| `src/WYAH/Renamed.hs`, `Renamer.hs`, `Desugar.hs` | Resolved names, scopes, selectors, `do` and comprehension lowering. |
-| `src/WYAH/Type.hs`, `Prelude.hs`, `Kind.hs` | Canonical types, schemes, built-in schemes, kind inference. |
-| `src/WYAH/Typed.hs`, `Infer.hs` | Evidence-carrying typed tree and Hindley-Milner inference. |
-| `src/WYAH/Core.hs`, `Elaborate.hs`, `Eval.hs` | Core IR, dictionary elaboration, pattern compilation, interpreter. |
-| `src/WYAH/Repl.hs`, `app/Main.hs` | Pipeline driver, REPL, file runner, CLI. |
-| `test/` | Accumulating runner, inline structural tests, TSV fixtures. |
-| `examples/` | Runnable ProtoHaskell programs. |
-| `docs/figures/` | Excalidraw scenes, PNG renders, and the scene generator. |
-| `devenv.nix`, `devenv.yaml`, `cabal.project` | Development shell and Cabal project settings. |
 
 ## Build and development
 
@@ -216,24 +201,6 @@ The devenv configuration is present but was not shell-validated on this host bec
 
 The test suite depends on `directory` and `filepath`; the library and executable depend on `base` only. `.github/workflows/ci.yml` runs the Cabal build and test on GHC 9.6.
 
-## Documentation
-
-- [`docs/language/protohaskell.md`](docs/language/protohaskell.md): language reference, syntax, and boundaries.
-- [`docs/audit/2026-11-01-audit.md`](docs/audit/2026-11-01-audit.md): audit findings and remediation.
-- [`docs/plans/architecture-wyah-milestone-1.md`](docs/plans/architecture-wyah-milestone-1.md): pass boundaries and invariants.
-- [`docs/plans/regression-matrix-wyah.md`](docs/plans/regression-matrix-wyah.md): feature and test matrix.
-- [`docs/process/regression-harness.md`](docs/process/regression-harness.md): fixture schema and runner contract.
-- [`docs/figures/generate.py`](docs/figures/generate.py): reproducible scene generator for the README figures.
-- [`docs/WYAH.pdf`](docs/WYAH.pdf): local copy of the reference text.
-
-The Excalidraw scenes and PNGs sit together under `docs/figures/`. Regenerate a figure with:
-
-```bash
-python3 -B docs/figures/generate.py
-EXCALIDRAW_BROWSER_PATH=/path/to/chrome \
-  excalidraw render docs/figures/architecture.excalidraw \
-  --out docs/figures/architecture.png --scale 2 --max-width 3200
-```
 
 ## References
 
